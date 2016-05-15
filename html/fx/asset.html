@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+    <title>test Asset</title>
+    <meta charset="utf-8">
+	<script>
+		var voyc = {};
+		var log = true;
+		window.addEventListener('load', function(evt) {
+			var list = {
+				hero: '../assets/character.png', 
+				tileset: '../assets/tiles.png'
+			};
+			// load them all
+			voyc.asset = new voyc.Asset();
+			voyc.asset.load(list, function(success) {
+				log&&console.log(success ? 'success' : 'fail');
+			});
+		}, false);
+	</script>
+    <script src="asset.js"></script>
+</head>
+<body>
+See console.
+</body>
+</html>

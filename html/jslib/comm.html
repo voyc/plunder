@@ -1,0 +1,89 @@
+﻿<!doctype html>
+<html>
+	<head>
+		<title>comm test</title>
+		<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+		<style>
+			button {
+				height: 40px;
+			}
+		</style>
+
+		<script src="comm.js" type="text/javascript"></script>
+		
+		<title>Comm Test</title>
+		
+		<script>
+			var commEcho = null;
+			var commStress = null;
+
+			onload = function() {
+				commEcho = new Comm('http://guru.hagstrand.com/svc/');
+				commStress = new Comm('http://guru.hagstrand.com/svc/');
+			}
+			
+			echotest = function() {
+				var a = {
+					data: document.getElementById("xinput").value,
+					stress: '0'
+				}
+				commEcho.request('echo', a, onEchoTestReturned);
+			}
+			
+			onEchoTestReturned = function(ok, response, o) {
+				if (ok) {
+					document.getElementById("xoutput").value = response.echo;
+				}
+			}
+
+			stresstest = function() {
+				commStress.seq = 1;
+				var c = document.getElementById('container');
+				c.innerHTML = '';
+
+				var numTests = 15;
+				var e,tin,tout;
+				for (var i=1; i<=numTests; i++) {
+					e = document.createElement('div');
+					c.appendChild(e);
+					
+					tin = document.createElement('textarea');
+					tin.id = 'xin' + i;
+					tin.value = 'data ' + i;
+					e.appendChild(tin);
+
+					tout = document.createElement('textarea');
+					tout.id = 'xout' + i;
+					e.appendChild(tout);
+
+					var a = {
+						data: document.getElementById('xin'+i).value,
+						stress: '1'
+					}
+
+					commStress.request('echo', a, onStressTestReturned);
+				}	
+			}
+			
+			onStressTestReturned = function(ok, response, o) {
+				if (ok) {
+					var s = response.echo + ' |' + o.seq + '|' + o.ok + '|' + o.retries + '|' + o.elapsed;
+					document.getElementById('xout'+o.seq).value = s;
+				}
+			}
+		</script>
+	</head>
+
+	<body>
+		<h1>comm Test</h1>
+		<h2>Echo Test</h2>
+		<textarea id="xinput" cols="60" rows="4">some text here</textarea><br/>
+		<button onclick='echotest()'>Echo Test</button><br/>
+		<textarea id="xoutput" cols="60" rows="4"></textarea><br/>
+
+		<h2>Stress Test</h2>
+		<button onclick='stresstest()'>Stress Test</button>
+		<div id='container'></div>
+	</body>
+</html>

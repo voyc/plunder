@@ -1,0 +1,14 @@
+html, body {
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+	padding: 0 0 0 0;
+	margin: 0 0 0 0;
+	-webkit-text-size-adjust:none;  /* for iphone */
+}
+
+canvas#world {
+    background: navy;
+	width:100%;
+	height:100%;
+}
