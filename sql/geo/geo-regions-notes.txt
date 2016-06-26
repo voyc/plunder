@@ -1,0 +1,41 @@
+
+// generate geo data
+
+// this is an old file originally found on Natural Earth Data, no longer there
+wget https://github.com/polpols/OSM-Tilemill/archive/master.zip
+
+// get one shapefile
+unzip -j master */10m_geography_regions_polys.*
+
+// load all to database "voyc" (not "jhagstrand_voyc")
+shp2pgsql -c -W LATIN1 10m_geography_regions_polys plunder.georegions >load.georegions.sql
+psql -d voyc -U jhagstrand <load.georegions.sql
+
+// generate deserts.js from database
+psql -t -d voyc -U jhagstrand <deserts.sql >deserts.js
+psql -t -d voyc -U jhagstrand <lowmountains.sql >lowmountains.js
+psql -t -d voyc -U jhagstrand <highmountains.sql >highmountains.js
+psql -t -d voyc -U jhagstrand <mediummountains.sql >mediummountains.js
+psql -t -d voyc -U jhagstrand <plateaux.sql >plateaux.js
+psql -t -d voyc -U jhagstrand <plains.sql >plains.js
+psql -t -d voyc -U jhagstrand <swamps.sql >swamps.js
+psql -t -d voyc -U jhagstrand <tundras.sql >tundras.js
+psql -t -d voyc -U jhagstrand <foothills.sql >foothills.js
+psql -t -d voyc -U jhagstrand <valleys.sql >valleys.js
+
+// mountains:
+//   high scalerank 1,2
+//   medium scalerank 3,4
+//   low scalerank 4,5
+
+// create one large geojson file from the shapefile
+ogr2ogr -f GeoJSON georegions.js 10m_geography_regions_polys.shp
+
+// never figured out how to create multiple geojson files, one for each featurecla
+ogr2ogr -f GeoJSON -clipsrcwhere "FeatureCla='foothills'" foothills.geojson 10m_geography_regions_polys.shp
+
+// counts
+select scalerank, featurecla, count(*), sum(ST_NPoints(the_geom))
+from plunder.georegions
+group by featurecla, scalerank
+order by featurecla, scalerank;

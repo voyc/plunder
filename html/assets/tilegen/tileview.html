@@ -1,0 +1,40 @@
+<title>Tile View</title>
+<style>
+div {
+	white-space:nowrap;
+}
+</style>
+<script>
+/* natural earth data, tiles for the area around india
+*/
+var colmin = 24;
+var colmax = 28;
+var rowmin = 4;
+var rowmax = 8;
+var fnamepat = '../tiles/ne2_c$x_r$y.png';
+
+/* google maps india tiles
+var colmin = 21;
+var colmax = 25;
+var rowmin = 12;
+var rowmax = 14;
+var fnamepat = '../../../../../../media/data/other/india_tiles/kh_y$y_x$x_z5.jpg';
+*/
+
+var fname = '';
+var s = '';
+for (var y=rowmin; y<=rowmax; y++) {
+	s += '<div>';
+	for (var x=colmin; x<=colmax; x++) {
+		fname = fnamepat;
+		fname = fname.replace('$x', x);
+		fname = fname.replace('$y', y);
+		s += '<img src='+fname+' />'
+	}
+	s += '</div>';
+}
+document.write(s);
+
+</script>
+
+

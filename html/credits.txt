@@ -1,0 +1,57 @@
+SamHasler, draws a sphere from an image, wrapping the image around the sphere.
+https://github.com/SamHasler/sphere/blob/master/sphere.js
+
+http://planetaryjs.com/examples/rotating.html
+
+tutorial on D3, including a distance calc function (distance on a sphere)
+http://www.maori.geek.nz/d3_js_geo_fun/
+
+Graham Jenson, draw rotating world
+http://bl.ocks.org/grahamjenson/8192485
+
+line simplification on natural earth data
+https://bost.ocks.org/mike/simplify/	
+
+D3 geo translates points, used with either svc or canvas
+https://d3js.org/
+https://github.com/d3/d3
+
+pretty map using svg gaussian blur and shadow around land areas 
+http://geoexamples.blogspot.in/2013_12_01_archive.html
+
+draw globe with d3 and canvas
+http://geoexamples.blogspot.in/2013/02/mapping-with-d3js-canvas-or-svg.html
+
+Natural Earth Data
+http://www.naturalearthdata.com/downloads/50m-raster-data/50m-natural-earth-2/
+
+github OSM-Tilemill/Natural-Earthgis_data/10m-geography-regions-polys/
+has polygons of mountains and deserts
+https://github.com/polpols/OSM-Tilemill/archive/master.zip
+
+Wikiatlas Localisator using D3.geo
+https://bl.ocks.org/hugolpz/a62f1d61168eae985d5c
+
+David Foster, draw graticule
+http://bl.ocks.org/daf/a7f88869504785481e9d
+
+Mike Bostock, draw globe with countries and graticule
+https://bl.ocks.org/mbostock/3757125
+
+topojson vs geojson
+topojson produces smaller files and supports topology
+http://stackoverflow.com/questions/14740705/difference-between-geojson-and-topojson
+https://en.wikipedia.org/wiki/GeoJSON
+
+draw a polygon with the mouse, detect points within the polygon
+this is with d3, but not d3-geo
+http://bl.ocks.org/bycoffe/5575904
+
+mouseover on countries, with svg, not canvas
+http://bl.ocks.org/nkhine/2876083
+
+how would one draw the projection for a walking sprite system?
+http://mathematica.stackexchange.com/questions/2076/how-do-i-plot-coordinates-latitude-and-longitude-pairs-on-a-geographic-map
+	
+generating fictional maps for games
+http://www-cs-students.stanford.edu/~amitp/game-programming/polygon-map-generation/

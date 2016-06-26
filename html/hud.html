@@ -1,0 +1,65 @@
+﻿<!doctype html>
+<html>
+<head>
+<meta http-equiv=Content-Type content="text/html; charset=UTF-8">
+<title>Hud</title>
+<style>
+html, body {
+	width:100%;
+	height:100%;
+	overflow:hidden;
+	margin:0;
+}
+.full {
+	position:fixed;
+	width:100%;
+	height:100%;
+}
+.visible {
+  opacity: 1;
+  transition: opacity .5s linear;
+}
+.hidden {
+  opacity: 0;
+  transition: opacity .5s linear;
+}
+
+</style>
+<link  href="css/hud.css" rel="stylesheet"  type="text/css">
+<script>/** @const */ var voyc = {};</script>
+<script src='js/hud.js'></script>
+<script>
+	var hud = {};
+	window.addEventListener('load', function(evt) {
+		hud = new voyc.Hud();
+		hud.setup(document.getElementById('hud'));
+		
+		window.addEventListener('keydown', function(evt) {
+			if (evt.which == 68) {  // letter d
+				hud.announce('boogers to you');
+			}
+			if (evt.which == 69) {  // letter e
+				hud.setWhereami( [-14,-68], 35, 'Oriental River', 'Taiwan');
+			}
+		}, false);
+	}, false);
+</script>
+</head>
+<body>
+<div id='content' class='full'>
+<h1>Content</h1>
+<p>Lorem ipsum dolor sit amet, solum quidam at nam. No labore molestie sea, eu velit graeci abhorreant mei. Te qui nostrud insolens. Has sale nobis graecis et, cu facete inciderint vim. Ut doming malorum sanctus sed, sensibus persequeris vim ut. No mel liber equidem invidunt.</p>
+<p>Facer fuisset cu qui. Eum oportere elaboraret ad, integre quaeque nominati eum in, erant antiopam mel an. Ad nisl omnesque eum, eu feugait vivendo sit. Ex nihil facilisi consequat qui, nonumy scaevola scripserit id sea. Adipisci interpretaris sea ea, qui ex omnesque consequuntur.</p>
+<p>Eu cum legere officiis dissentias, tota facilisi ea vel. Temporibus scribentur no pri, solum omnium accumsan duo ei. Id legere libris graeco sea, ad solet persecuti per. Nostrud feugiat appellantur his no, in congue labore his, erant iuvaret noluisse eum an.</p>
+<p>No quo copiosae verterem persecuti, ea mei dolorem offendit, tollit fuisset corrumpit pri ut. Mea nibh mollis an, pri summo iusto fuisset at. Est cu movet volutpat molestiae. Animal omnesque explicari his te, falli munere vim an.</p>
+<p>Quaeque euripidis nec te. Veniam mollis quo at. Inani placerat molestiae duo ex, et sit regione ancillae delicata. Mei no hinc tritani repudiandae, et illum torquatos usu. Pri ubique qualisque voluptaria no, viderer invidunt ei eum, ne cibo populo facilisis pro.</p>
+<h1>Content</h1>
+<p>Lorem ipsum dolor sit amet, solum quidam at nam. No labore molestie sea, eu velit graeci abhorreant mei. Te qui nostrud insolens. Has sale nobis graecis et, cu facete inciderint vim. Ut doming malorum sanctus sed, sensibus persequeris vim ut. No mel liber equidem invidunt.</p>
+<p>Facer fuisset cu qui. Eum oportere elaboraret ad, integre quaeque nominati eum in, erant antiopam mel an. Ad nisl omnesque eum, eu feugait vivendo sit. Ex nihil facilisi consequat qui, nonumy scaevola scripserit id sea. Adipisci interpretaris sea ea, qui ex omnesque consequuntur.</p>
+<p>Eu cum legere officiis dissentias, tota facilisi ea vel. Temporibus scribentur no pri, solum omnium accumsan duo ei. Id legere libris graeco sea, ad solet persecuti per. Nostrud feugiat appellantur his no, in congue labore his, erant iuvaret noluisse eum an.</p>
+<p>No quo copiosae verterem persecuti, ea mei dolorem offendit, tollit fuisset corrumpit pri ut. Mea nibh mollis an, pri summo iusto fuisset at. Est cu movet volutpat molestiae. Animal omnesque explicari his te, falli munere vim an.</p>
+<p>Quaeque euripidis nec te. Veniam mollis quo at. Inani placerat molestiae duo ex, et sit regione ancillae delicata. Mei no hinc tritani repudiandae, et illum torquatos usu. Pri ubique qualisque voluptaria no, viderer invidunt ei eum, ne cibo populo facilisis pro.</p>
+</div>
+<div id='hud' class='full'>
+</body>
+</html>

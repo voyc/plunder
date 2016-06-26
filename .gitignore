@@ -1,0 +1,6 @@
+# Ignore build outputs
+min.js
+min.css
+index.php
+Thumbs.db
+html/asset/tiles/*

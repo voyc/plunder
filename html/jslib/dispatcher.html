@@ -1,0 +1,72 @@
+<html>
+	<head>
+		<title>Dispatcher Test</title>
+		<script>
+			voyc = {};
+			Event = {
+				OneClicked: 1,
+				TwoClicked: 2,
+				ThreeClicked: 3,
+			};
+		
+			window.onload = onLoad;
+			g = {};  // all global variables go in here
+
+			function onLoad() {
+				console.log("loading");
+
+				// Create three dispatchers, for testing only.  Normally each app uses only one Dispatcher.
+				g.dispatcher1 = new voyc.Dispatcher();
+				g.dispatcher2 = new voyc.Dispatcher();
+				g.dispatcher3 = new voyc.Dispatcher();
+
+				g.dispatcher1.subscribe( Event.OneClicked, 'tester', onClickOne);
+				g.dispatcher2.subscribe( Event.TwoClicked, 'tester', onClickTwo);
+				g.dispatcher3.subscribe( Event.ThreeClicked, 'tester', onClickThree);
+
+				g.myobject = new MyObject(g.dispatcher1);  // second subscribe to btn 1
+
+				document.getElementById('btn1').addEventListener('click', function(evt) {
+					g.dispatcher1.publish(Event.OneClicked, "self", {x:'homer', y:'jethro'});
+				}, false);
+				document.getElementById('btn2').addEventListener('click', function(evt) {
+					g.dispatcher2.publish(Event.TwoClicked, "self", {data:'xxxx'});
+				}, false);
+				document.getElementById('btn3').addEventListener('click', function(evt) {
+					g.dispatcher3.publish(Event.ThreeClicked, "self", {a:1,b:2});
+				}, false);
+			}
+
+			function onClickOne(note) {
+				alert(['in onClickOne', note.payload.x, note.payload.y]);
+			}
+			function onClickTwo(note) {
+				alert(['in onClickTwo', note.payload.data]);
+			}
+			function onClickThree(note) {
+				alert(['in onClickThree', note.payload.a, note.payload.b]);
+			}
+		</script>
+		<script src="dispatcher.js"></script>
+
+		<script>
+			/* class MyObject */
+			function MyObject(dispatcher) {
+				var self = this;
+				dispatcher.subscribe( Event.OneClicked, 'MyObject', self.click1);
+			}
+			MyObject.prototype = {
+				click1 : function(note) {
+					alert(['in myObject.click1', note.payload.x, note.payload.y]);
+				}
+			}
+		</script>
+	</head>
+
+<body>
+	<h1>Dispatcher Test</h1>
+	<input type="button" value="Button 1" id='btn1'/>
+	<input type="button" value="Button 2" id='btn2'/>
+	<input type="button" value="Button 3" id='btn3'/>
+</body>
+</html>
