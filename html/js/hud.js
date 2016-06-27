@@ -13,9 +13,13 @@ voyc.Hud = function() {
 	this.elem = {};
 	this.spinning = false;
 	this.mapzoomer = {};
+	this.timeslider = {};
+	this.sliding = false;
 	this.dragging = false;
 	this.dragOrigin = false;
 	this.dragCenter = false;
+	this.menuIsOpen = false;
+	this.scoreboxIsOpen = false;
 }
 
 voyc.Hud.html = '';
@@ -39,10 +43,10 @@ voyc.Hud.html += "		<div id='scorename'>name</div>";
 voyc.Hud.html += "		<div id='scoremsg'>msg</div>";
 voyc.Hud.html += "	</div>";
 voyc.Hud.html += "	<div class='hud visible hidden' id='menu'>Preferences:";
-voyc.Hud.html += "		<div><input id='menucheat' type='checkbox' />Cheat (Alt-C)</div>";
-voyc.Hud.html += "		<div><input id='menugraticule' type='checkbox' />Show Meridians</div>";
-voyc.Hud.html += "		<div><input id='menupresentday' type='checkbox' />Show Present-Day Borders</div>";
-voyc.Hud.html += "		<div><input id='menuhires' type='checkbox' />Hi-Res (90MB Download)</div>";
+voyc.Hud.html += "		<div><label for='menucheat'><input id='menucheat' type='checkbox' />Cheat (Alt-C)</label></div>";
+voyc.Hud.html += "		<div><label for='menugraticule'><input id='menugraticule' type='checkbox' />Show Meridians</label></div>";
+voyc.Hud.html += "		<div><label for='menupresentday'><input id='menupresentday' type='checkbox' />Show Present-Day Borders</label></div>";
+voyc.Hud.html += "		<div><label for='menuhires'><input id='menuhires' type='checkbox' />Hi-Res (90MB Download)</label></div>";
 voyc.Hud.html += "		<div class='tcenter'><button id='menudone'>Done</button></div>";
 voyc.Hud.html += "	</div>";
 voyc.Hud.html += "	<div class='hud visible' id='menubtn'></div>";
@@ -89,6 +93,9 @@ voyc.Hud.prototype.attach = function() {
 	document.getElementById('menugraticule').addEventListener('click', function(evt) {
 		evt.stopPropagation();
 		voyc.plunder.setOption(voyc.option.GRATICULE, evt.target.checked);
+		if (voyc.plunder.getOption(voyc.option.CHEAT)) {
+			voyc.plunder.render(0,0);
+		}
 	}, false);
 	document.getElementById('menupresentday').addEventListener('click', function(evt) {
 		evt.stopPropagation();
@@ -98,6 +105,8 @@ voyc.Hud.prototype.attach = function() {
 		evt.stopPropagation();
 		self.closeAnnouncement();
 	}, false);
+	
+	// mapzoom slider
 	document.getElementById('mapzoom').addEventListener('click', function(evt) {
 		if (voyc.plunder.getOption(voyc.option.CHEAT)) {
 			evt.stopPropagation();
@@ -123,9 +132,35 @@ voyc.Hud.prototype.attach = function() {
 			voyc.plunder.world.zoomStop();
 		}
 	}, false);
+
+	// time slider
 	document.getElementById('timeslide').addEventListener('click', function(evt) {
 		if (voyc.plunder.getOption(voyc.option.CHEAT)) {
 			evt.stopPropagation();
+		}
+	}, false);
+	this.timeslider = document.getElementById('timeslider');
+	this.timeslider.min = voyc.plunder.startyear;
+	this.timeslider.max = voyc.plunder.lastyear;
+	this.timeslider.addEventListener('mousedown', function(evt) {
+		if (voyc.plunder.getOption(voyc.option.CHEAT)) {
+			self.sliding = true;
+			evt.stopPropagation();
+			voyc.plunder.timeslideStart();
+		}
+	}, false);
+	this.timeslider.addEventListener('input', function(evt) {
+		if (voyc.plunder.getOption(voyc.option.CHEAT)) {
+			voyc.plunder.timeslideValue(this.value);
+			evt.stopPropagation();
+		}
+	}, false);
+	this.timeslider.addEventListener('mouseup', function(evt) {
+		if (voyc.plunder.getOption(voyc.option.CHEAT)) {
+			voyc.plunder.timeslideValue(this.value);
+			self.sliding = false;
+			evt.stopPropagation();
+			voyc.plunder.timeslideStop();
 		}
 	}, false);
 
@@ -256,6 +291,9 @@ voyc.Hud.prototype.setTime = function(time) {
 	var fyear = Math.abs(time);
 	fyear += ' ' + ((time < 0) ? 'BCE' : 'CE');
 	document.getElementById('time').innerHTML = fyear;
+	if (!this.sliding) {
+		document.getElementById('timeslider').value = time;
+	}
 }
 
 voyc.Hud.prototype.setScore = function(score, name, msg) {
@@ -263,6 +301,7 @@ voyc.Hud.prototype.setScore = function(score, name, msg) {
 	document.getElementById('scorename').innerHTML = name;
 	document.getElementById('scoremsg').innerHTML = msg;
 	this.show(document.getElementById('scorebox'));
+	this.scoreboxIsOpen = true;
 	var scoreboxduration = 2000;
 	var self = this;
 	setTimeout(function() {
@@ -271,6 +310,7 @@ voyc.Hud.prototype.setScore = function(score, name, msg) {
 }
 voyc.Hud.prototype.closeScoreBox = function() {
 	this.hide(document.getElementById('scorebox'));
+	this.scoreboxIsOpen = false;
 }
 
 voyc.Hud.prototype.setZoom = function(newvalue) {
@@ -282,12 +322,21 @@ voyc.Hud.prototype.setZoom = function(newvalue) {
 */
 
 voyc.Hud.prototype.onMap = function(e) { 
-	return (
-		!(e.target.id == 'mapzoomer')
-		&& !(e.target.id == 'timeslider')
-		&& !(e.target.id == 'menubtn')
-		&& !(e.target.id == 'menu' && this.menuIsOpen)
-	);
+	return (!(
+		(e.target.id == 'mapzoomer')
+		|| (e.target.id == 'timeslider')
+		|| (e.target.id == 'menubtn')
+		|| (this.menuIsOpen && (
+			(e.target.id == 'menu')
+			|| (e.target.parentElement.id == 'menu')
+			|| (e.target.parentElement.parentElement.id == 'menu')
+			|| (e.target.parentElement.parentElement.parentElement.id == 'menu')
+		))
+		|| (e.target.id == 'scorebox')
+		|| (e.target.parentElement.id == 'scorebox')
+		|| (e.target.id == 'huduser')
+		|| (e.target.parentElement.id == 'huduser')
+	));
 }
 
 // Return point of mouse or touch

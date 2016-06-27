@@ -71,6 +71,7 @@ voyc.World.prototype.setup = function(elem, co, w, h) {
 	this.layer[voyc.layer.SLOWBACKA] = this.createLayer(true, 'slowbacka');
 	this.layer[voyc.layer.RIVERS] = this.createLayerSVG();
 	this.layer[voyc.layer.REFERENCE] = this.createLayer(false, 'reference');
+	this.layer[voyc.layer.EMPIRE] = this.createLayer(false, 'empire');
 	this.layer[voyc.layer.FOREGROUND] = this.createLayer(false, 'foreground');
 	this.layer[voyc.layer.HUD] = this.createLayerDiv('hud');
 
@@ -88,8 +89,18 @@ voyc.World.prototype.setup = function(elem, co, w, h) {
 	this.iterateeEmpire = new voyc.GeoIterate.iterateePolygonClipping();
 	voyc.merge(this.iterateeEmpire, new voyc.GeoIterate.iterateeDrawPerGeometry);
 	this.iterateeEmpire.projection = this.projection;
-	this.iterateeEmpire.ctx = this.getLayer(voyc.layer.FOREGROUND).ctx;
+	this.iterateeEmpire.ctx = this.getLayer(voyc.layer.EMPIRE).ctx;
 	this.iterateeEmpire.colorstack = voyc.empireColors;
+	this.iterateeEmpire.geometryStart = function(geometry) {
+		geometry['q'] = geometry['b'] < voyc.plunder.nowyear && voyc.plunder.nowyear < geometry['e'];
+		if (geometry['q']) {
+			this.ctx.beginPath();
+		}
+		return geometry.q;
+	};
+	this.iterateeEmpire.collectionStart = function(collection) {
+		this.ctx.clearRect(0,0,this.ctx.canvas.width,this.ctx.canvas.height);
+	};
 
 	this.iterateeGrid = new voyc.GeoIterate.iterateeLine();
 	this.iterateeGrid.projection = this.projection;
@@ -101,6 +112,38 @@ voyc.World.prototype.setup = function(elem, co, w, h) {
 
 	this.iterateeHitTest = new voyc.GeoIterate.iterateeHitTest();
 	this.iterateeHitTest.projection = this.projection;
+}
+
+voyc.World.prototype.resize = function(w, h) {
+	this.w = w;
+	this.h = h;
+	this.diameter = Math.min(this.w, this.h);
+	this.projection.translate([this.w/2, this.h/2]);  // position the circle within the canvas (centered) in pixels
+
+	var a = {};
+	for (var i in voyc.layer) {
+		a = this.getLayer(voyc.layer[i]);
+		if (a.type == 'canvas') {
+			a.canvas.width  = this.w;
+			a.canvas.height = this.h;
+			a.canvas.style.width =  this.w + 'px';
+			a.canvas.style.height = this.h + 'px';
+		}
+		else if (a.type == 'svg') {
+			a.svg.width  = this.w + 'px';
+			a.svg.height = this.h + 'px';
+			a.svg.style.width =  this.w + 'px';
+			a.svg.style.height = this.h + 'px';
+		}
+		else if (a.type == 'div') {
+			a.div.style.width =  this.w + 'px';
+			a.div.style.height = this.h + 'px';
+		}
+	}
+	
+	//if (useImageData) {
+	//	a.imageData = a.ctx.createImageData(this.w, this.h);
+	//}
 }
 
 voyc.World.prototype.setupData = function() {
@@ -176,6 +219,7 @@ voyc.World.prototype.setScale = function(newscale) {
 
 voyc.World.prototype.createLayer = function(useImageData, id) {
 	var a = {};
+	a.type = 'canvas';
 	a.canvas = document.createElement('canvas');
 	a.canvas.id = id;
 	a.canvas.classList.add('layer');
@@ -195,6 +239,7 @@ voyc.World.prototype.createLayer = function(useImageData, id) {
 
 voyc.World.prototype.createLayerSVG = function() {
 	var a = {};
+	a.type = 'svg';
 	//a.svg = document.createElement('svg');
 	a.svg = document.createElementNS("http://www.w3.org/2000/svg", 'svg');
 	a.svg.classList.add('layer');
@@ -209,15 +254,17 @@ voyc.World.prototype.createLayerSVG = function() {
 }
 
 voyc.World.prototype.createLayerDiv = function(eid) {
-	var e = document.createElement('div');
-	e.id = eid;
-	e.classList.add('layer');
-	e.classList.add('visible');
-	e.classList.add('hidden');
-	e.style.width =  this.w + 'px';
-	e.style.height = this.h + 'px';
-	this.elem.appendChild(e);
-	return e;
+	var a = {};
+	a.type = 'div';
+	a.div = document.createElement('div');
+	a.div.id = eid;
+	a.div.classList.add('layer');
+	a.div.classList.add('visible');
+	a.div.classList.add('hidden');
+	a.div.style.width =  this.w + 'px';
+	a.div.style.height = this.h + 'px';
+	this.elem.appendChild(a.div);
+	return a;
 }
 
 voyc.World.prototype.createRiverPaths = function() {
@@ -254,8 +301,9 @@ voyc.World.prototype.show = function() {
 	this.showHiRes(voyc.plunder.getOption(voyc.option.HIRES));
 	this.getLayer(voyc.layer.RIVERS).svg.classList.remove('hidden');
 	this.getLayer(voyc.layer.REFERENCE).canvas.classList.remove('hidden');
+	this.getLayer(voyc.layer.EMPIRE).canvas.classList.remove('hidden');
 	this.getLayer(voyc.layer.FOREGROUND).canvas.classList.remove('hidden');
-	this.getLayer(voyc.layer.HUD).classList.remove('hidden');
+	this.getLayer(voyc.layer.HUD).div.classList.remove('hidden');
 }
 
 voyc.World.prototype.drag = function(pt) {
@@ -427,8 +475,9 @@ voyc.layer = {
 	FEATURES:3,
 	RIVERS:4,
 	REFERENCE:5,
-	FOREGROUND:6,
-	HUD:7,
+	EMPIRE:6,
+	FOREGROUND:7,
+	HUD:8,
 }
 
 /** @struct */

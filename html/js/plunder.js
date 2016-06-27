@@ -30,6 +30,7 @@ voyc.Plunder = function() {
 	this.score = 0;
 
 	// time
+	this.timesliding = false;
 	this.starttime = 0;
 	this.nowtime = 0;
 	this.startyear = -3500;
@@ -48,7 +49,6 @@ voyc.option = {
 	GRATICULE:2,
 	PRESENTDAY:3
 }
-
 voyc.Plunder.defaultOptions = {};
 voyc.Plunder.defaultOptions[voyc.option.HIRES] = false;
 voyc.Plunder.defaultOptions[voyc.option.CHEAT] = true;
@@ -166,9 +166,11 @@ voyc.Plunder.prototype.load = function () {
 	voyc.Effect.sound = this.sound;
 
 	this.hud = new voyc.Hud();
-	this.hud.setup(this.world.getLayer(voyc.layer.HUD));
+	this.hud.setup(this.world.getLayer(voyc.layer.HUD).div);
 	this.hud.attach();
+	this.hud.setTime(this.nowyear);
 	this.hud.setWhereami(this.hero.co, '', '');
+
 	this.world.setScale(this.world.scale.now);
 	
 	// setup UI
@@ -257,7 +259,9 @@ voyc.Plunder.prototype.sync = function (name, success) {
 	render.  Main loop.  Called by Game animation engine.
 */
 voyc.Plunder.prototype.render = function (delta, timestamp) {
-	this.setTime(timestamp);
+	if (timestamp) {
+		this.calcTime(timestamp);
+	}
 	
 	// update
 	var keyed = this.hud.checkKeyboard();
@@ -287,22 +291,42 @@ voyc.Plunder.prototype.render = function (delta, timestamp) {
 	this.drawEffects(ctx);
 }
 
-voyc.Plunder.prototype.setTime = function (timestamp) {
+voyc.Plunder.prototype.calcTime = function (timestamp) {
 	if (!this.starttime) {
 		this.starttime = timestamp;
 	}
 	this.nowtime = timestamp;
 	var ms = this.nowtime - this.starttime;
-	this.nowyear = Math.round(this.startyear + ((ms / 1000) * this.speedoftime));
+	var year = Math.round(this.startyear + ((ms / 1000) * this.speedoftime));
+	this.setTime(year);
+}
+
+voyc.Plunder.prototype.setTime = function (year) {
+	this.nowyear = year;
 	
 	// gameover
-	if (this.nowyear >= this.lastyear) {
+	if (!this.getOption(voyc.option.CHEAT) && this.nowyear >= this.lastyear) {
 		this.nowyear = this.lastyear;
 		this.game.stop();
 		this.hud.announce('Game Over', false);
 	}
 
 	this.hud.setTime(this.nowyear);
+}
+
+voyc.Plunder.prototype.timeslideStart = function() {
+	this.timesliding = true;
+}
+
+voyc.Plunder.prototype.timeslideValue = function(value) {
+//	var diff = this.lastyear - this.startyear;
+//	var delta = Math.round(diff * (pct/100));
+//	this.setTime(this.startyear + delta);
+	this.setTime(value);
+	this.drawEmpire();
+}
+voyc.Plunder.prototype.timeslideStop = function() {
+	this.timesliding = false;
 }
 
 /*
@@ -588,12 +612,7 @@ voyc.Plunder.prototype.drawEmpire = function (ctx) {
 	// within the drawing function, access the feature object
 	// feature = geometry
 
-
-
-	ctx.fillStyle = 'yellow';
-	ctx.beginPath();
 	this.world.iterator.iterateCollection(window['voyc']['data']['empire'], this.world.iterateeEmpire);
-	ctx.fill();
 }
 
 voyc.Plunder.prototype.alert = function (s) {
@@ -605,6 +624,18 @@ voyc.Plunder.prototype.alert = function (s) {
 		this.hud.announce(s,false);
 	}
 }
+
+voyc.Plunder.prototype.resize = function (s) {
+	this.world.resize(document.body.clientWidth, document.body.clientHeight);
+	this.world.moved = true;
+	if (this.getOption(voyc.option.CHEAT)) {
+		this.render(0,0);
+	}
+}
+
+window.addEventListener('resize', function(evt) {
+	voyc.plunder.resize();
+}, false);
 
 if (log) {
 	voyc.timer = function() {
@@ -694,3 +725,4 @@ voyc.Event = {
 	Unused:0,
 	FileLoaded:1,
 }
+
