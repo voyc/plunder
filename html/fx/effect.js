@@ -1,10 +1,10 @@
 /**
 	class Effect
+	@constructor
 **/
 
-voyc.Effect = function(ctx, x, y, imagename, rows, cols, soundname) {
+voyc.Effect = function(x, y, imagename, rows, cols, soundname) {
 	// inputs
-	this.ctx = ctx;
 	this.x = x;
 	this.y = y;
 	this.imagename = imagename;
@@ -31,7 +31,7 @@ voyc.Effect = function(ctx, x, y, imagename, rows, cols, soundname) {
 voyc.Effect.asset = null;  // asset manager
 voyc.Effect.sound = null;  // sound manager
 
-voyc.Effect.prototype.draw = function() {
+voyc.Effect.prototype.draw = function(ctx) {
 	if (this.frame == 0) {
 		voyc.Effect.sound.play(this.soundname);
 	}
@@ -47,7 +47,7 @@ voyc.Effect.prototype.draw = function() {
 		}
 	}
 
-    this.ctx.drawImage(
+	ctx.drawImage(
 		this.image,  // image
 
 		(col * this.w), // source x
@@ -55,8 +55,8 @@ voyc.Effect.prototype.draw = function() {
 		this.w, // source w
 		this.h, // source h
 
-		this.x - (this.w/2) - voyc.plunder.camera.x,  // target x
-		this.y - (this.h/2) - voyc.plunder.camera.y,  // target y
+		this.x - (this.w/2),  // target x
+		this.y - (this.h/2),  // target y
 		this.w,  // target w
 		this.h   // target h
 	);

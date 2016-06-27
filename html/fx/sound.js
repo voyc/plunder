@@ -14,6 +14,10 @@ voyc.Sound = function() {
 	this.maxAttempts = 3;
 }
 
+voyc.Sound.prototype.toString = function() {
+	return('Sound');
+}
+
 // load array of sound files
 voyc.Sound.prototype.loadSounds = function(urlpattern, names, cb) {
 	this.cb = cb;
@@ -38,13 +42,13 @@ voyc.Sound.prototype.loadSound = function(url, name) {
 	request.onload = function() {
 		// decode the audio file data in returned in request.response
 		loader.context.decodeAudioData(
-			request.response,
+			/** @type {ArrayBuffer} */ (request.response),
 			function(buffer) {
 				if (buffer) {
 					// success
 					loader.bufferList[name].buffer = buffer;
 					loader.bufferList[name].state = voyc.LoadState.SUCCESS;
-					console.log('sound ' + name + ' loaded');
+					//console.log('sound ' + name + ' loaded');
 				}
 				else {
 					loader.bufferList[name].state = voyc.LoadState.PENDING;
@@ -78,6 +82,7 @@ voyc.Sound.prototype.onSoundLoad = function() {
 		var sound = this.bufferList[name];
 		if (sound.state == voyc.LoadState.SUCCESS) {
 			success++;
+			voyc.dispatcher.publish(voyc.Event.FileLoaded, this, {note:name});
 		}
 		else if (sound.state == voyc.LoadState.PENDING) {
 			if (sound.attempt < this.maxAttempts) {

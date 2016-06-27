@@ -6,50 +6,46 @@
 	Calls onRender callback function
 */
 voyc.Game = function() {
-	this.starttime = 0;
-	this.previousTimestamp = 0;
-	this.delta = 0;
-	this.elapsed = 0;
-	this.frames = 0;
-	this.fps = 0;
 	this.running = false;
-	this.onRender = function() {};
+	this.onRender = function(delta,timestamp) {};
+	this.previousTimestamp = 0;
+	if (log) {
+		this.starttime = 0;
+		this.elapsed = 0;
+		this.frames = 0;
+		this.fps = 0;
+	}
 }
 
 voyc.Game.prototype.start = function () {
-	log&&console.log('start');
+	log&&console.log('game engine start');
 	this.running = true;
-	this.starttime = 0;
-	this.frames = 0;
-	this.previousTimestamp = 0;
 	var self = this;
 	window.requestAnimationFrame(function(timestamp) {self.step(timestamp)});
 }
 
 voyc.Game.prototype.stop = function () {
-	log&&console.log('stop');
+	log&&console.log('game engine stop');
 	this.running = false;
 }
 
 voyc.Game.prototype.step = function (timestamp) {
-	if (!this.starttime) this.starttime = timestamp;
-	if (!this.previousTimestamp) this.previousTimestamp = timestamp;
-
-	this.delta = timestamp - this.previousTimestamp;
-	this.elapsed = timestamp - this.starttime;
+	if (log) {
+		if (!this.starttime) this.starttime = timestamp;
+		this.elapsed = timestamp - this.starttime;
+		this.frames++;
+		this.fps = (this.frames / (this.elapsed / 1000));
+	}
+	var delta = timestamp - this.previousTimestamp;
     this.previousTimestamp = timestamp;
-	this.frames++;
-	this.fps = (this.frames / (this.elapsed / 1000));
-
-	this.render(this.delta);
-
+	this.render(delta, timestamp);
 	if (this.running) {
 		var self = this;
 		window.requestAnimationFrame(function(timestamp) {self.step(timestamp)});
 	}
 }
 
-voyc.Game.prototype.render = function (delta) {
-	log&&!(this.frames % 100)&&console.log('render ' + delta + ' ' + this.elapsed + ' ' + this.frames + ' ' + this.fps);
-	this.onRender(delta);
+voyc.Game.prototype.render = function (delta,timestamp) {
+	log&&!(this.frames % 1000)&&console.log('render ' + delta.toFixed(2) + ' ' + this.elapsed.toFixed(0) + ' ' + this.frames + ' ' + this.fps.toFixed(2));
+	this.onRender(delta,timestamp);
 }

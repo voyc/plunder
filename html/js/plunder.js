@@ -1,7 +1,8 @@
+
 /**
 	class Plunder
 	singleton
-	Loads resources and then executes the animation loop.
+	The prime mover.  Loads resources, creates objects, starts action.
 	@constructor
 */
 voyc.Plunder = function() {
@@ -11,72 +12,122 @@ voyc.Plunder = function() {
 	this.h = 0;
     this.previousElapsed = 0;
 	
-	this.game = null;
-	this.keyboard = null;
-	this.treasure = {};
-	this.score = 0;
+	// object model
+	this.asset = {};
+	this.sound = {};
+	this.game = {};
+	this.keyboard = {};
 	this.effects = [];
+	this.world = {};
+	this.texture = {};
+	this.hero = {};
+	this.hud = {};
+
+	this.loadnum = 2;
+	this.loadmax = 19;
 	this.loaded = {};
+	this.options = {};
+	this.score = 0;
+
+	// time
+	this.starttime = 0;
+	this.nowtime = 0;
+	this.startyear = -3500;
+	this.lastyear = (new Date().getFullYear());
+	this.nowyear = this.startyear;
+	this.speedoftime = 10; // years per second	
+	
+	// alias to external data
+	this.treasure = window['voyc']['data']['treasure'];
 }
 
-voyc.Plunder.prototype.start = function () {
-	// build list of image pathnames
-	var path = 'assets/';
-	var list = {
-		hero:    path+'sprites/survivor-walk-16.png',
-		explode: path+'sprites/explosion-1.png',
-		tileset: path+'images/tiles.png',
-		reddot:  path+'images/reddot.png',
-		//redxbox:   path+'images/red-xbox.png',
-		//bluebox:  path+'images/blue-xbox.png',
-	};
-	for (var y=12; y<=14; y++) {
-		for (var x=21; x<=25; x++) {
-			fname = 'kh_y' + y + '_x' + x + '_z5.jpg';
-			tpath = path + 'tiles/' + fname;
-			key = y + '_' + x;
-			list[key] = tpath;
-		}
-	}
+/** @enum */
+voyc.option = {
+	HIRES:0,
+	CHEAT:1,
+	GRATICULE:2,
+	PRESENTDAY:3
+}
 
-	// start loading images
-	log&&console.log('loading');
+voyc.Plunder.defaultOptions = {};
+voyc.Plunder.defaultOptions[voyc.option.HIRES] = false;
+voyc.Plunder.defaultOptions[voyc.option.CHEAT] = true;
+voyc.Plunder.defaultOptions[voyc.option.GRATICULE] =  true;
+voyc.Plunder.defaultOptions[voyc.option.PRESENTDAY] = false;
+
+voyc.Plunder.storageKey = 'plunderoptions';
+
+voyc.Plunder.prototype.toString = function () {
+	return 'Plunder';
+}
+
+voyc.Plunder.prototype.load = function () {
+	log&&console.log(voyc.timer()+'windows load event');
+
+	var self = this;
+	voyc.str = new voyc.Str();
+	voyc.dispatcher = new voyc.Dispatcher();
+	voyc.dispatcher.subscribe(voyc.Event.FileLoaded, this, function(note) {
+		self.loadnum++;
+		var msg = 'File ' + self.loadnum + ' of ' + self.loadmax;
+		var ldr = document.getElementById('loadermsg');
+		if (ldr) {
+			ldr.innerHTML = msg;
+		}
+	});
+	voyc.dispatcher.publish(voyc.Event.FileLoaded, this, {note:'plunder.js'});
+
+	this.options = this.initOptions();
+
+	this.sprites = {
+		hero:    {rows:5, cols:4, w:22, h:16},
+		explode: {rows:1, cols:16},
+	}
+	
+	var path = 'assets/';
+	var list = [
+		{key:'hero'    ,path:path+'sprites/survivor-walk-16.png'},
+		{key:'explode' ,path:path+'sprites/explosion-1.png'},
+		{key:'tileset' ,path:path+'images/tiles.png'},
+		{key:'reddot'  ,path:path+'images/reddot.png'},
+		{key:'redxbox' ,path:path+'images/red-xbox.png'},
+		{key:'bluebox' ,path:path+'images/blue-xbox.png'},
+		{key:'treasure',path:path+'images/chest32.png'},
+		{key:'himtn'   ,path:path+'images/highmountains.png'},
+		{key:'desert'  ,path:path+'images/desert.png'},
+	];
+
 	this.asset = new voyc.Asset();
 	var self = this;
-	this.asset.load(list, function(success) {
-		if (success) {
-			self.onload('visual');
-		}
-		else {
-			alert('Images failed to load.  Try again.')
+	log&&console.log(voyc.timer()+'visual load start');
+	this.asset.load(list, function(success, key) {
+		if (!key) {
+			self.sync('visual', success);	
 		}
 	});
 
-	// start loading sounds
+	this.sound = new voyc.Sound();
 	var urlpattern = 'assets/sounds/%sound%.mp3';
 	var fxfiles = [
 		'explode',
 	];
-	this.sound = new voyc.Sound();
-	this.sound.loadSounds(urlpattern, fxfiles, function(isSuccess) {
-		if (isSuccess) {
-			self.onload('audio');
-		}
-		else {
-			console.log('audio files failed to load');
-			alert('Some audio files failed to load.  Try again.');
-		}
-	});
+	log&&console.log(voyc.timer()+'audio load start');
+	this.sound.loadSounds(urlpattern, fxfiles, function(isSuccess) { self.sync('audio', isSuccess); });
 
-	this.elem = document.getElementById('world');
-	this.ctx = this.elem.getContext('2d');
-	this.w = this.elem.offsetWidth;
-	this.h = this.elem.offsetHeight;
-	this.elem.width = this.w;
-	this.elem.height = this.h;
-
+	var scripts = [
+		'topojson/topojson.min.js',
+		'data/treasure.js',
+		'data/deserts.js',
+		'data/highmountains.js',
+		'data/worldtopo.js',
+		'data/empire.js',
+	];
+	this.scriptLoader = new voyc.ScriptLoader();
+	this.scriptLoader.load(scripts, function(isSuccess) { self.sync('scripts', isSuccess); });
+	log&&console.log(voyc.timer()+'script load start');
+	
 	this.game = new voyc.Game();
-	this.game.onRender = function(elapsed) {self.render(elapsed)};
+	this.game.onRender = function(elapsed,timestamp) {self.render(elapsed,timestamp)};
 
 	this.keyboard = new voyc.Keyboard();
 	this.keyboard.listenForEvents([
@@ -86,199 +137,369 @@ voyc.Plunder.prototype.start = function () {
 		voyc.Key.DOWN,
 	]);
 	
-	this.hero = {};
-	this.world = {};
-	this.camera = {};
-	this.tile = {};
-	
-	// hero is the protagonist's position in the world
-	this.hero.frame = 0;
-	this.hero.rows = 5;
-	this.hero.cols = 4;
-	this.hero.x = 600;
-	this.hero.y = 300;
-	this.hero.w = 22;  // sprite w
-	this.hero.h = 16;  // sprite h
-	this.hero.xprev = 600;
-	this.hero.yprev = 300;
-	this.hero.xdiff = 0;
-	this.hero.ydiff = 0;
-	this.hero.lat = 0;
-	this.hero.lng = 0;
+	this.world = new voyc.World();
+	this.world.setup( 
+		document.getElementById('world'), 
+		[80,20,0],  // start position: india 80E 20N
+		document.body.clientWidth,
+		document.body.clientHeight
+	 );
 
-	this.tilesize = 256;
-
-	this.tile.x = 0;
-	this.tile.y = 0;
-	this.tile.w = this.tilesize;
-	this.tile.h = this.tilesize;
-	
-	// world is the rectangle of the totality of what we have
-	this.world.rows = 3;
-	this.world.cols = 5;
-	this.world.x = 0;
-	this.world.y = 0;
-	this.world.w = this.world.cols * this.tilesize;   // 5 * 256 = 1280
-	this.world.h = this.world.rows * this.tilesize;   // 3 * 256 = 768
-	this.world.gn = 40.8969036908;
-	this.world.gs = 11.3076785449;
-	this.world.gw = 56.42578125;
-	this.world.ge = 112.390136719;
-
-	// camera is the rectangle shown on screen
-	this.camera.x = 100;
-	this.camera.y = 100;
-	this.camera.w = this.w;
-	this.camera.h = this.h;
-
-	this.treasure = {
-		1: { b:-2500, e:-1900, lat: 27.3243  , lng: 68.1357  , pts: 1000, cap:0, id:1, name:'Mohenjo Daro'},
-        2: { b:-2600, e:-1900, lat: 30.6312  , lng: 72.8683  , pts: 1000, cap:0, id:2, name:'Harappa'},
+	this.texture = new voyc.Texture();
+	var elem = document.getElementById('texture');
+	var filename = 'assets/images/NE2_50M_SR_W.png';
+	var w = 10800;
+	var h = 5400;
+	var scale = 1720; // determined through trial and error.  scale is supposed to be equal to width
+	if (this.getOption(voyc.option.HIRES)) {
+		this.texture.setup(elem, filename, w, h, scale);
+		log&&console.log(voyc.timer()+'texture load start');
+//		this.texture.loadTiles('initial', function(isSuccess) {self.sync('texture', isSuccess)});
 	}
-	this.plotTreasure();
 
-	this.plotRivers();
+	this.hero = new voyc.Hero();
+	this.hero.setLocation([80,20]);
+	this.hero.setSprite(this.sprites.hero);
 
+	// set static class variables in the Effect object
 	voyc.Effect.asset = this.asset;
 	voyc.Effect.sound = this.sound;
-}
 
-voyc.Plunder.prototype.onload = function (name) {
-	this.loaded[name] = true;
-	if (this.loaded['audio'] && this.loaded['visual']) {
-		this.run();
-	}
-}
+	this.hud = new voyc.Hud();
+	this.hud.setup(this.world.getLayer(voyc.layer.HUD));
+	this.hud.attach();
+	this.hud.setWhereami(this.hero.co, '', '');
+	this.world.setScale(this.world.scale.now);
 	
-voyc.Plunder.prototype.geocode = function (x,y) {
-	var l = this.world.x;
-	var r = this.world.w;
-	var t = this.world.y;
-	var b = this.world.h;
-
-	n = this.world.gn;
-	s = this.world.gs;
-	e = this.world.ge;
-	w = this.world.gw;
-
-	// (x-l)/(r-l) = (lng-w)/(e-w)   solve for lng
-	// (x-l)*(e-w)/r-l = (lng-w)*(e-w)/(e-w)
-	// (x-l)*(e-w)/r-l = (lng-w)
-	// ((x-l)*(e-w)/r-l)+w = (lng-w)+w
-	// ((x-l)*(e-w)/r-l)+w = (lng)
-
-	var lng = ((x-l)*(e-w)/r-l)+w;
-	var lat = ((y-t)*(s-n)/b-t)+n;
-	return {lat:lat, lng:lng};
+	// setup UI
+	var w = document.getElementById('world');
+	w.removeAttribute('hidden');
+	var w = document.getElementById('loader');
+	w.classList.add('visible');
 }
 
-voyc.Plunder.prototype.reverseGeocode = function (lat,lng) {
-	var l = this.world.x;
-	var r = this.world.w;
-	var t = this.world.y;
-	var b = this.world.h;
-
-	var n = this.world.gn;
-	var s = this.world.gs;
-	var e = this.world.ge;
-	var w = this.world.gw;
-
-	// (x-l)/(r-l) = (lng-w)/(e-w)   solve for x
-	// (x-l)*(r-l)/(r-l) = (lng-w)*(r-l)/(e-w)
-	// (x-l) = (lng-w)*(r-l)/(e-w)
-	// (x-l)+l = (lng-w)*(r-l)/(e-w)+l
-	// (x = (lng-w)*(r-l)/(e-w)+l
-
-	var x = (lng-w)*(r-l)/(e-w)+l;
-	var y = (lat-n)*(b-t)/(s-n)+t;
-	return {x:x, y:y};
+voyc.Plunder.prototype.setOption = function (option,value) {
+	this.options[option] = value;
+	localStorage.setItem(voyc.Plunder.storageKey, JSON.stringify(this.options));
+	if (option == voyc.option.CHEAT) {
+		this.hud.showCheat(value);
+	}
+	if (option == voyc.option.HIRES) {
+		this.world.showHiRes(value);
+	}
+	this.world.moved = true;
 }
 
-voyc.Plunder.prototype.run = function () {
-	log&&console.log('start');
-	this.game.start();
+voyc.Plunder.prototype.getOption = function (option) {
+	return (this.options[option]);
 }
 
-voyc.Plunder.prototype.render = function (delta) {
-	// update
-	this.moveHero(delta);
-	this.moveCamera();
-
-	// draw
-	this.drawBackground();
-	this.drawTreasure();
-	this.drawRivers();
-	this.drawHero();
-	this.drawEffects();
-}
-
-voyc.Plunder.prototype.drawBackground = function () {
-    var startCol = 21;
-    var endCol = 25;
-    var startRow = 12;
-    var endRow = 14;
-
-    for (var c = startCol; c <= endCol; c++) {
-        for (var r = startRow; r <= endRow; r++) {
-			var name = r + '_' + c;
-			this.ctx.drawImage(
-				this.asset.get(name), // image
-
-				this.tile.x, // source x
-				this.tile.y, // source y
-				this.tile.w, // source width
-				this.tile.h, // source height
-
-				0-this.camera.x + ((c-startCol)*this.tilesize),  // target x
-				0-this.camera.y + ((r-startRow)*this.tilesize), // target y
-				this.tile.w, // target width
-				this.tile.h // target height
-			);
+voyc.Plunder.prototype.initOptions = function () {
+	var options = JSON.parse(localStorage.getItem(voyc.Plunder.storageKey)) || {};
+	var replace = false;
+	for (var k in voyc.Plunder.defaultOptions) {
+		if (!(k in options)) {
+			options[k] = voyc.Plunder.defaultOptions[k];
+			replace = true;
 		}
 	}
-};
+	if (replace) {
+		localStorage.setItem(voyc.Plunder.storageKey, JSON.stringify(this.options));
+	}
+	return (options);
+}
 
-voyc.Plunder.prototype.moveHero = function (deltatime) {
-	// calculate two vectors
-	// deltatime = microseconds since previous frame
+voyc.Plunder.prototype.sync = function (name, success) {
+	if (!success) {
+		log&&console.log(voyc.timer()+name+' load failed. abort.');
+		this.alert('Failed to load '+name+' assets.  Try again.')
+		return;
+	}
+	log&&console.log(voyc.timer()+name+' load complete');
+	this.loaded[name] = true;
+	if (this.loaded['scripts'] && this.loaded['audio'] && this.loaded['visual'] && (!this.options.hires || this.loaded['texture'])) {
+		console.log('sync proceeding');
 
-	var walk = 60; // pixels per second
-	var run = 240;
-	var speed = (this.keyboard.isShift()) ? run : walk;
-	var deltapixel = (speed / 1000) * deltatime;   // distance in pixels since previous frame
+		this.world.setupData();
+		this.hero.setImage(this.asset.get('hero'));
 
-	var left = (this.keyboard.isDown(voyc.Key.LEFT)) ? -1 : 0;
-	var right = (this.keyboard.isDown(voyc.Key.RIGHT)) ? 1 : 0;
-	var up = (this.keyboard.isDown(voyc.Key.UP)) ? -1 : 0;
-	var down = (this.keyboard.isDown(voyc.Key.DOWN)) ? 1 : 0;
-	var deltax = (left + right) * deltapixel;
-	var deltay = (up + down) * deltapixel;
-	this.hero.x += (left + right) * deltapixel;
-	this.hero.y += (up + down) * deltapixel;
+		this.world.show();
+		document.getElementById('loader').classList.add('hidden');
+		setTimeout(function() {
+			var loader = document.getElementById('loader');
+			loader.parentElement.removeChild(loader);
+		}, 1000);
 
-	// contain the hero within the world
-	this.hero.x = Math.max(this.hero.x, this.world.x);
-	this.hero.x = Math.min(this.hero.x, this.world.x + this.world.w - this.hero.w);
-	this.hero.y = Math.max(this.hero.y, this.world.y);
-	this.hero.y = Math.min(this.hero.y, this.world.y + this.world.h - this.hero.h);
+		log&&console.log(voyc.timer()+'start game engine');
+		if (this.getOption(voyc.option.CHEAT)) {
+			this.render(0,0);
+			this.hud.showCheat(true);
+		}
+		else {
+			this.game.start();
+		}
 
-	this.hero.xdiff = this.hero.x - this.hero.xprev;
-	this.hero.ydiff = this.hero.y - this.hero.yprev;
-	this.hero.xprev = this.hero.x;
-	this.hero.yprev = this.hero.y;
+		// this is hanging up the game engine	
+		// try webworker
+		if (this.options.hires) {
+			var self = this;
+			setTimeout(function() {
+					log&&console.log(voyc.timer()+'texture remainder load start');
+					self.texture.loadTiles('remainder', function(isSuccess) {
+						log&&console.log(voyc.timer()+'texture remainder load '+((isSuccess) ? 'complete' : 'failed'));
+					});
+			}, 3000);
+		}
+	}
+}
 
-	// calc hero position in geo coordinates
-	var ll = this.geocode(this.hero.x, this.hero.y);
-	this.hero.lat = ll.lat;
-	this.hero.lng = ll.lng;
-	//console.log('hero at lat:'+ll.lat+', lng:'+ll.lng);
+/**
+	render.  Main loop.  Called by Game animation engine.
+*/
+voyc.Plunder.prototype.render = function (delta, timestamp) {
+	this.setTime(timestamp);
+	
+	// update
+	var keyed = this.hud.checkKeyboard();
+	var heroMoved = this.hero.move(delta, timestamp, keyed);
 
+	// draw background
+	if (this.world.moved) {
+		this.world.draw();
+	}
+
+	// draw foreground
+	var ctx = this.world.getLayer(voyc.layer.FOREGROUND).ctx;
+    ctx.clearRect(0, 0, voyc.plunder.world.w, voyc.plunder.world.h);
+	this.drawTreasure(ctx);
+	this.drawEmpire(ctx);
+	this.hero.draw(ctx);
+
+	if (heroMoved) {
+		this.hitTest();
+		this.whereami();
+		this.hero.speedNow = this.hero.speedBest;
+	}
+	else {
+		this.hero.speedNow = 0;
+	}
+	this.hud.setSpeed(this.hero.speedNow);
+	this.drawEffects(ctx);
+}
+
+voyc.Plunder.prototype.setTime = function (timestamp) {
+	if (!this.starttime) {
+		this.starttime = timestamp;
+	}
+	this.nowtime = timestamp;
+	var ms = this.nowtime - this.starttime;
+	this.nowyear = Math.round(this.startyear + ((ms / 1000) * this.speedoftime));
+	
+	// gameover
+	if (this.nowyear >= this.lastyear) {
+		this.nowyear = this.lastyear;
+		this.game.stop();
+		this.hud.announce('Game Over', false);
+	}
+
+	this.hud.setTime(this.nowyear);
+}
+
+/*
+voyc.Plunder.prototype.plotRivers = function () {
+	log&&console.log(voyc.timer()+'plotRivers start');
+	var geom = [];
+	var line = [];
+	var co = [];
+	var pt = [];
+	var newline = [];
+	var cntFeatures = 0;
+	var cntLines = 0;
+	var cntPoints = 0;
+	var m = 0;
+	var t = [];
+	t[0] = '';
+	t[1] = '';
+	t[2] = '';
+	t[3] = '';
+	t[4] = '';
+	t[5] = '';
+	t[6] = '';
+	var scalerank = 0;
+	for (var i=0; i<window['voyc']['data'].rivers.features.length; i++) {
+		// geom is an object that includes type, coordinates, properties.  we add points.
+		geom = voyc.data.rivers.features[i].geometry;
+		scalerank = voyc.data.rivers.features[i].properties.scalerank;
+		geom.points = [];
+
+		// geom.coordinates is an array of linestrings
+		for (var j=0; j<geom.coordinates.length; j++) {
+			line = geom.coordinates[j];
+
+			// line is an array of coords
+			newline = [];
+			m = 0;
+			for (var n=0; n<line.length; n++) {
+				co = line[n];
+				pt = this.world.projection(co);  // pt = reverseGeocode(co);
+				if (pt[0] > 0 && pt[0] < this.world.w && pt[1] > 0 && pt[1] < this.world.h) {
+					newline.push(pt);
+					cntPoints++;
+					t[scalerank] += ((m) ? 'L' : 'M' ) + pt[0].toFixed(1) + ' ' + pt[1].toFixed(1) + ' ';
+					m++;
+				}
+			}
+			if (newline.length > 0) {
+				geom.points.push(newline);
+				cntLines++;
+			}
+		}
+		if (geom.points.length > 0) {
+			cntFeatures++;
+		}
+	}
+	log&&console.log(voyc.timer()+'plotRivers complete, '+cntFeatures+','+cntLines+','+cntPoints);
+	// 121ms plotRivers complete, 348,661,24036
+	// 90ms plotRivers complete, 28,58,1799
+	return t;
+}
+		
+voyc.Plunder.prototype.drawRiversCanvas = function (ctx) {
+	log&&console.log(voyc.timer()+'drawRivers start');
+	ctx.strokeStyle = '#00f';
+	var geom = [];
+	var line = [];
+	var pt = [];
+	for (var i=0; i<voyc.data.rivers.features.length; i++) {
+		// geom is an object that includes type, coordinates, properties.  we add points.
+		geom = voyc.data.rivers.features[i].geometry;
+
+		// geom.points is an array of linestrings
+		for (var j=0; j<geom.points.length; j++) {
+			line = geom.points[j];
+
+			// line is an array of coords
+			pt = line[0];
+			ctx.moveTo(pt[0], pt[1]);
+			for (var n=1; n<line.length; n++) {
+				pt = line[n];
+				ctx.lineTo(pt[0], pt[1]);
+			}
+			ctx.stroke();
+		}
+	}
+	log&&console.log(voyc.timer()+'drawRivers complete');
+}
+
+voyc.Plunder.prototype.drawRiversCanvasAnimated = function (ctx) {
+	log&&console.log(voyc.timer()+'drawRiversAnimated start');
+
+	var color = ['#3cf','#09f','#03c'];
+	var i = 0;
+	var r = 0;
+	var getColor = function() {
+		r = (this.i++) % 3;
+		return color[r];
+	}
+
+	var geom = [];
+	var line = [];
+	var pt = [];
+	var ptPrev = [];
+	for (var i=0; i<voyc.data.rivers.features.length; i++) {
+		// geom is an object that includes type, coordinates, properties.  we add points.
+		geom = voyc.data.rivers.features[i].geometry;
+
+		// geom.points is an array of linestrings
+		for (var j=0; j<geom.points.length; j++) {
+			line = geom.points[j];
+
+			// line is an array of coords
+			ctx.strokeStyle = '#0f0'; //getColor();
+			ptPrev = line[0];
+			ctx.moveTo(ptPrev[0], ptPrev[1]);
+			for (var n=1; n<line.length; n++) {
+				pt = line[n];
+				ctx.lineTo(pt[0], pt[1]);
+				ctx.stroke();
+				ptPrev = pt;
+			}
+		}
+	}
+	log&&console.log(voyc.timer()+'drawRiversAnimated complete');
+}
+*/
+
+// in what polygons is the hero
+voyc.Plunder.prototype.whereami = function () {
+	var co = this.hero.co;
+	var geoco = {coordinates:co};
+	var whereami = '';
+	var speed = this.hero.speedBase;
+
+	// features by name
+	var featurefactors = {
+		'deserts': {speedfactor: .22},
+		//'lowmountains': {speedfactor: .18},
+		//'mediummountains': {speedfactor: .24},
+		'highmountains': {speedfactor: .30},
+		//'plateaux': {speedfactor: 0},
+		//'plains': {speedfactor: 0},
+		//'swamps': {speedfactor: .15},
+		//'tundras': {speedfactor: .05},
+		//'foothills': {speedfactor: .07},
+		//'valleys': {speedfactor: .02},
+	};
+
+	//var featurenames = [
+	//	'deserts',
+	//	//'lowmountains',
+	//	'highmountains',
+	//	//'mediummountains',
+	//	//'plateaux',
+	//	//'plains',
+	//	//'swamps',
+	//	//'tundras',
+	//	//'foothills',
+	//	//'valleys',
+	//];
+	//for (var n=0; n<featurenames.length; n++) {
+//	for (var ff in featurefactors) {
+//		var features = voyc.data[ff].features;
+//		for (var i=0; i<features.length; i++) {
+//			if (gju.pointInMultiPolygon(geoco, features[i].geometry)) {
+//				if (whereami.length) {
+//					whereami += '<br/>';
+//				}
+//				whereami += features[i].properties.name;
+//				speed -= (speed * featurefactors[ff].speedfactor);
+//			}
+//		}
+//	}
+
+	var presentday = '';
+//	var features = voyc.data.countries.geometries;
+//	for (var i=0; i<features.length; i++) {
+//		if (gju.pointInMultiPolygon(geoco, features[i].geometry)) {
+//			presentday = features[i].properties.name;
+//			break;
+//		}
+//	}
+
+	this.hero.speedBest = speed;
+	this.hud.setWhereami(co, whereami, presentday);
+}
+
+// is hero touching a treasure
+voyc.Plunder.prototype.hitTest = function () {
+	var t = {};
 	for (var key in this.treasure) {
-		if (!this.treasure[key].cap) {
-			var boo = this.isCollision(this.treasure[key]);
+		t = this.treasure[key];
+		if (t['q'] && !t['cap']) {
+			var boo = this.isCollision(t);
 			if (boo) {
-				console.log('collision');
-				this.onTreasureCaptured(this.treasure[key].id);
+				log&&console.log('collision');
+				this.onTreasureCaptured(t);
 				break;
 			}
 		}
@@ -286,7 +507,8 @@ voyc.Plunder.prototype.moveHero = function (deltatime) {
 }
 
 voyc.Plunder.prototype.isCollision = function (treasure) {
-	return this.isPtInRect(treasure, this.hero);
+	var rect = {x:this.hero.pt[0], y:this.hero.pt[1], w:this.hero.sprite.w, h:this.hero.sprite.h};
+	return this.isPtInRect(treasure, rect);
 }
 
 voyc.Plunder.prototype.isPtInRect = function (pt, rect) {
@@ -294,207 +516,181 @@ voyc.Plunder.prototype.isPtInRect = function (pt, rect) {
 		 && (rect.y < pt.y) && (pt.y < rect.y + rect.h));
 }
 
-voyc.Plunder.prototype.onTreasureCaptured = function (id) {
-	this.treasure[id].cap = 1;
-	this.score += this.treasure[id].pts;
-	this.explode(this.treasure[id].x, this.treasure[id].y);
+voyc.Plunder.prototype.onTreasureCaptured = function (t) {
+	t['cap'] = 1;
+	this.score += t['score'];
+	this.explode(t[x], t['y']);
+	this.hud.setScore(this.score, t['name'], t['msg']);
 }
 
 voyc.Plunder.prototype.explode = function (x,y) {
-	var ex = new voyc.Effect(this.ctx, x, y, 'explode', 1, 16, 'explode');
+	var rows = this.sprites.explode.rows;
+	var cols = this.sprites.explode.cols;
+	var ex = new voyc.Effect(x, y, 'explode', rows, cols, 'explode');
 	this.effects.push(ex);
 }
 
-voyc.Plunder.prototype.drawEffects = function () {
+voyc.Plunder.prototype.drawEffects = function (ctx) {
 	for (var i=0; i<this.effects.length; i++) {
 		var ef = this.effects[i];
-		var b = ef.draw();
+		var b = ef.draw(ctx);
 		if (!b) {
 			this.effects.splice(i,1);  // finished
 		}
 	}
 }
 	
-voyc.Plunder.prototype.moveCamera = function () {
+voyc.Plunder.prototype.drawTreasure = function (ctx) {
+	for (var key in this.treasure) {
+		var t = this.treasure[key];
+		if (!t['cap']) {
+			t['q'] = false;
+			var pt = this.world.projection.project([t['lng'], t['lat']]);
+			if (pt 
+					&& (pt[0] > 0) && (pt[0]<this.world.w) && (pt[1] > 0) && (pt[1]<this.world.h)
+					&& (t['b'] < this.nowyear) && (t['e'] > this.nowyear)
+				) {
+				t['q'] = true;  // is qualified
+				t['x'] = pt[0];
+				t['y'] = pt[1];
+				
+				t['image'] = this.asset.get('treasure');
+				t['w'] = t.image.width;
+				t['h'] = t.image.height;
+				
+				ctx.drawImage(
+					t['image'], // image
 
-	// 1. keep the hero inside the warning track
-	var warningTrack = 32;  // pixels from the edge of the camera
-	this.camera.x = Math.min(this.camera.x, this.hero.x - warningTrack);
-	this.camera.x = Math.max(this.camera.x, this.hero.x + warningTrack - this.camera.w);
-	this.camera.y = Math.min(this.camera.y, this.hero.y - warningTrack);
-	this.camera.y = Math.max(this.camera.y, this.hero.y + warningTrack - this.camera.h);
+					0, // source x
+					0, // source y
+					t['w'], // source width
+					t['h'], // source height
 
-	// 2. keep the camera inside the world
-	this.camera.x = Math.max(this.camera.x, this.world.x);
-	this.camera.x = Math.min(this.camera.x, (this.world.x + this.world.w - this.camera.w));
-	this.camera.y = Math.max(this.camera.y, this.world.y);
-	this.camera.y = Math.min(this.camera.y, (this.world.y + this.world.h - this.camera.h));
-}
-
-voyc.Plunder.prototype.drawHero = function () {
-
-	if ((this.hero.xdiff || this.hero.ydiff)) {
-		this.hero.frame++;
-	}	
-
-	if (this.hero.frame >= (this.hero.rows * this.hero.cols)) {
-		this.hero.frame = 0;
-	}
-	var i=0, row=0, col=0;
-	while (i<this.hero.frame) {
-		i++;
-		col++;
-		if (col > this.hero.cols) {
-			col = 0;
-			row++;
+					t['x'] - (t['w']/2),  // target x
+					t['y'] - (t['h']/2), // target y
+					t['w'],   // target width
+					t['h']    // target height
+				);
+			}
+			else {
+				t['q'] = false;
+			}
+//			console.log([t.q,t.lng,t.lat,t.x,t.y, t.b, t.e, t.name]);
 		}
 	}
+	var i = 2;
+};
 
-	// calc angle of travel in degrees
-	if ((this.hero.xdiff || this.hero.ydiff)) {
-		var dgrs = 0;
-		var dx = this.hero.xdiff;
-		var dy = this.hero.ydiff;
-		if (dx == 0 && dy <  0)  dgrs = 270;  // up          
-		if (dx >  0 && dy <  0)  dgrs = 315;  // up-right    
-		if (dx >  0 && dy == 0)  dgrs =   0;  // right       
-		if (dx >  0 && dy >  0)  dgrs =  45;  // down-right  
-		if (dx == 0 && dy >  0)  dgrs =  90;  // down        
-		if (dx <  0 && dy >  0)  dgrs = 135;  // down-left   
-		if (dx <  0 && dy == 0)  dgrs = 180;  // left        
-		if (dx <  0 && dy <  0)  dgrs = 225;  // up-left     
-
-		// degrees to radians
-		this.hero.r = dgrs * (Math.PI / 180);
-	}
-
-	this.ctx.save();
-
-	// translate centerpoint of image within camera
-	var tx = this.hero.x - this.camera.x + (this.hero.w/2);
-	var ty = this.hero.y - this.camera.y + (this.hero.h/2);
-	this.ctx.translate(tx,ty);
-
-	this.ctx.rotate(this.hero.r);
+voyc.Plunder.prototype.drawEmpire = function (ctx) {
 	
-	this.ctx.drawImage(
-		this.asset.get('hero'), // image
+	// qualify by time
+	// when drawing, draw only qualified features, use the color for that feature
+	// within the drawing function, access the feature object
+	// feature = geometry
 
-		(col * this.hero.w), // source x
-		(row * this.hero.h), // source y
-		this.hero.w, // source width
-		this.hero.h, // source height
 
-		(-this.hero.w/2), // target x     // draw at 0,0 minus the offset, translate has positioned x,y at 0,0
-		(-this.hero.h/2), // target y
-		this.hero.w,  // target width
-		this.hero.h   // target height
-	);
-	this.ctx.restore();
-};
 
-voyc.Plunder.prototype.plotTreasure = function () {
-	for (var key in this.treasure) {
-		var t = this.treasure[key];
-		var lat = t.lat;
-		var lng = t.lng;
-		var pt = this.reverseGeocode(lat,lng);
-		t.x = pt.x;
-		t.y = pt.y;
+	ctx.fillStyle = 'yellow';
+	ctx.beginPath();
+	this.world.iterator.iterateCollection(window['voyc']['data']['empire'], this.world.iterateeEmpire);
+	ctx.fill();
+}
+
+voyc.Plunder.prototype.alert = function (s) {
+	var e = document.querySelector('loader');
+	if (e) {
+		e.innerHTML = s;
+	}
+	else {
+		this.hud.announce(s,false);
 	}
 }
 
-voyc.Plunder.prototype.plotRivers = function () {
-	for (var i=0; i<voyc.rivers.length; i++) {
-		var co = voyc.rivers[i].coords;
-		voyc.rivers[i].points = [];
-		for (var j=0; j<co.length; j++) {
-			var seg = co[j];
-			voyc.rivers[i].points[j] = [];
-			for (var k=0; k<seg.length; k++) {
-				var p = seg[k];
-				var pt = this.reverseGeocode(p.lat,p.lng);
-				var t = {};
-				t.x = pt.x;
-				t.y = pt.y;
-				voyc.rivers[i].points[j][k] = t;
+if (log) {
+	voyc.timer = function() {
+		var leftfill = function(s,n) {
+			var t = s.toString();
+			while (t.length < n) {
+				t = '0'+t;
 			}
+			return t;
 		}
+		if (!voyc.plunder.starttime) {
+			voyc.plunder.timestamp = new Date();
+			voyc.plunder.starttime = voyc.plunder.timestamp;
+		}
+		var tm = new Date();
+		var elapsed = tm - voyc.plunder.timestamp;
+		voyc.plunder.timestamp = tm;
+		return voyc.plunder.timestamp - voyc.plunder.starttime + 'ms, ' + leftfill(elapsed,4) + 'ms ';
 	}
-	console.log('rivers plotted');
+//	log&&console.log(voyc.timer()+'js loaded');
 }
 
-voyc.Plunder.prototype.drawRivers = function () {
-	for (var i=0; i<voyc.rivers.length; i++) {
-		var co = voyc.rivers[i].points;
-		for (var j=0; j<co.length; j++) {
-			var seg = co[j];
-			this.ctx.beginPath();
-			this.ctx.moveTo(seg[0].x - this.camera.x, seg[0].y - this.camera.y);
-			for (var k=1; k<seg.length; k++) {
-				this.ctx.lineTo(seg[k].x - this.camera.x, seg[k].y - this.camera.y);
-			}
-			this.ctx.stroke();
-		}
-	}
-	console.log('rivers drawn');
 
-/*	
-			t.image = this.asset.get('reddot');
-			t.w = t.image.width;
-			t.h = t.image.height;
+
+/* this is calculate_vector code
+used at one time to draw the vector for the hero's journey
+			// draw origin point
+			var coOrigin = voyc.plunder.world.co;
+			var ptOrigin = voyc.plunder.world.pt = voyc.plunder.world.projection(voyc.plunder.world.co);  // pt = reverseGeocode(co)
+			var circlesize = .1;
+			var circleOrigin = d3.geo.circle();
+			circleOrigin.angle(circlesize);
+			circleOrigin.origin(coOrigin);
 			
-			this.ctx.drawImage(
-				this.asset.get('reddot'), // image
+			// draw destination point
+			var ptDestination = [evt.offsetX, evt.offsetY];
+			var coDestination = voyc.plunder.world.projection.invert(ptDestination); // co = geocode(pt);
+			var circleDestination = d3.geo.circle();
+			circleDestination.origin(coDestination);
+			circleDestination.angle(circlesize);
 
-				0, // source x
-				0, // source y
-				this.hero.w, // source width
-				this.hero.h, // source height
+			// draw line to Destination point
+			var line = {
+				type: "LineString",
+				coordinates: [coOrigin, coDestination]
+			};
+			var geom = [circleOrigin(), circleDestination(), line];
 
-				t.x - (t.w/2) - this.camera.x,  // target x
-				t.y - (t.h/2) - this.camera.y, // target y
-				this.hero.w, //this.hero.w, // target width
-				this.hero.h //this.hero.h // target height
-			);
-		}
-	}
+			var ctx = voyc.plunder.world.getLayer().ctx;
+			ctx.beginPath();
+			ctx.lineWidth = .2;
+			ctx.strokeStyle = "#000";
+			ctx.fillStyle = "rgba(0,100,0,.5)";
+			path({type: "GeometryCollection", geometries: geom});
+			ctx.closePath();
+			ctx.fill();
+			ctx.stroke();
+
+			// log distance and angles to Destination point
+			var rads = d3.geo.distance(coOrigin, coDestination);
+			var km = rads * voyc.plunder.world.radiusKm;
+			var theta = voyc.calcAngle(ptOrigin, ptDestination);
+			log&&console.log(voyc.timer()+'distance: ' + rads + ' radians, ' + km + ' km, angle: ' + theta);
+
+			// calc next point
+			var speed = voyc.speed.WALK;
+			var secondsToNextPoint = km / speed;
+			var t = speed / km;
+			var coStep = d3.geo.interpolate(coOrigin, coDestination)(t);
+
+			// draw Destination point
+			var circleStep = d3.geo.circle();
+			circleStep.origin(coStep);
+			circleStep.angle(circlesize);
+			voyc.plunder.world.ctx.beginPath();
+			voyc.plunder.world.ctx.strokeStyle = "#f00";
+			voyc.plunder.world.ctx.fillStyle = "#f00)";
+			var geom = [circleStep()];
+			voyc.plunder.world.path({type: "GeometryCollection", geometries: geom});
+			voyc.plunder.world.ctx.closePath();
+			voyc.plunder.world.ctx.fill();
+			voyc.plunder.world.ctx.stroke();
 */
-};
 
-voyc.Plunder.prototype.drawTreasure = function () {
-	for (var key in this.treasure) {
-		var t = this.treasure[key];
-		if (!t.cap) {
-			
-			t.image = this.asset.get('reddot');
-			t.w = t.image.width;
-			t.h = t.image.height;
-			
-			this.ctx.drawImage(
-				this.asset.get('reddot'), // image
-
-				0, // source x
-				0, // source y
-				this.hero.w, // source width
-				this.hero.h, // source height
-
-				t.x - (t.w/2) - this.camera.x,  // target x
-				t.y - (t.h/2) - this.camera.y, // target y
-				this.hero.w, //this.hero.w, // target width
-				this.hero.h //this.hero.h // target height
-			);
-		}
-	}
-};
-
-window.addEventListener('load', function (evt) {
-	voyc.plunder = new voyc.Plunder();
-	voyc.plunder.start();
-}, false);
-
-window.addEventListener('click', function (evt) {
-	if (evt.keycode == voyc.Key.ESC) {
-		voyc.plunder.stop();
-	}
-}, false);
+/** @enum */
+voyc.Event = {
+	Unused:0,
+	FileLoaded:1,
+}

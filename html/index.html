@@ -1,21 +1,92 @@
 <!doctype html>
 <html>
 <head>
-    <title>Plunder</title>
-    <meta charset="utf-8">
-	
-	<script> /** @const */ var voyc = {}; </script>
-	<script> var log = true; </script>
-    <script src="js/plunder.js"></script>
-    <script src="js/rivers.js"></script>
-    <script src="fx/asset.js"></script>
-    <script src="fx/game.js"></script>
-    <script src="fx/keyboard.js"></script>
-    <script src="fx/sound.js"></script>
-    <script src="fx/effect.js"></script>
-    <link  href="css/plunder.css" rel="stylesheet"  type="text/css">
+<title>Plunder</title>
+<meta charset="utf-8">
+<meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1'>
+
+<?php if (false) { ?>
+<script src="js/namespace.js"></script>
+<script src="js/plunder.js"></script>
+<script src="js/world.js"></script>
+<script src="js/texture.js"></script>
+<script src="js/hero.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/str.js"></script>
+<script src="fx/asset.js"></script>
+<script src="fx/game.js"></script>
+<script src="fx/keyboard.js"></script>
+<script src="fx/sound.js"></script>
+<script src="fx/effect.js"></script>
+<script src="geo/geo.js"></script>
+<script src="geo/geoiterate.js"></script>
+<script src="geo/orthographicprojection.js"></script>
+<script src="jslib/utils.js"></script>
+<script src="jslib/scriptloader.js"></script>
+<script src="jslib/dispatcher.js"></script>
+<script>
+window.addEventListener('load', function (evt) {
+	voyc.plunder = new voyc.Plunder();
+	voyc.plunder.load();
+}, false);
+</script>
+
+<!--
+<script src="data/river1.js"></script>
+<script src="data/river2.js"></script>
+<script src="data/river3.js"></script>
+<script src="data/river4.js"></script>
+<script src="data/river5.js"></script>
+<script src="data/river6.js"></script>
+
+<script src="topojson/topojson.min.js"></script>
+<script src="data/worldtopo.js"></script>
+<script src="data/deserts.js"></script>
+<script src="data/treasure.js"></script>
+<script src="data/highmountains.js"></script>
+<script src="data/empire.js"></script>
+-->
+
+<!--
+<script src="data/foothills.js"></script>
+<script src="data/lowmountains.js"></script>
+<script src="data/mediummountains.js"></script>
+<script src="data/plains.js"></script>
+<script src="data/plateaux.js"></script>
+<script src="data/swamps.js"></script>
+<script src="data/tundras.js"></script>
+<script src="data/valleys.js"></script>
+-->
+<link  href="css/plunder.css" rel="stylesheet"  type="text/css">
+<link  href="css/hud.css" rel="stylesheet"  type="text/css">
+<?php } else { ?>
+<!--<remove>
+<script>
+console.log('html loaded');	
+var script = document.createElement("script");
+script.type = "text/javascript";
+script.src = 'min.js';
+document.getElementsByTagName("head")[0].appendChild(script);
+</script>
+<link  href='min.css' rel='stylesheet' type='text/css'></link>
+<remove>-->
+<?php } ?>
+
+<style>
+[hidden] {display:none ! important;}
+#loader{width:99vw;height:95vh;display:table-cell;vertical-align:middle;text-align:center;}
+spinner{display:inline-block;animation: rotate-left 1.2s linear infinite;font-size:7rem;color:navy;}
+@keyframes rotate-left{from { transform: rotate(0deg);}	to {transform: rotate(360deg);}}
+.ftext{display:block;font-size:2rem;font-family:Comic Sans MS;}
+</style>
 </head>
 <body>
-	<canvas id=world></canvas>
+<div id='world' hidden></div>
+<div id='loader'>
+	<spinner>&#x21bb;</spinner>
+	<div class=ftext>Loading...</div>
+	<div class=ftext id=loadermsg>File 2 of 19</div>
+</div>
+<div id='texture' hidden></div>
 </body>
 </html>

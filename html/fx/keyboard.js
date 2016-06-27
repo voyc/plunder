@@ -5,13 +5,15 @@ voyc.Key = {
 	UP: 38,
 	DOWN: 40,
 	ESC: 27,
-	RETURN: 13
+	RETURN: 13,
+	C: 67
 }
 
 /** @constructor */
 voyc.Keyboard = function() {
 	this.keys = {};
 	this.shift = false;
+	this.alt = false;
 }
 
 voyc.Keyboard.prototype.listenForEvents = function (keys) {
@@ -30,6 +32,7 @@ voyc.Keyboard.prototype._onKeyDown = function (event) {
         this.keys[keyCode] = true;
     }
 	this.shift = event.shiftKey;
+	this.alt = event.altKey;
 };
 
 voyc.Keyboard.prototype._onKeyUp = function (event) {
@@ -39,15 +42,16 @@ voyc.Keyboard.prototype._onKeyUp = function (event) {
         this.keys[keyCode] = false;
     }
 	this.shift = event.shiftKey;
+	this.alt = event.altKey;
 };
 
 voyc.Keyboard.prototype.isDown = function (keyCode) {
-    if (!keyCode in this.keys) {
-        throw new Error('Keycode ' + keyCode + ' is not being listened to');
-    }
     return this.keys[keyCode];
 };
 
 voyc.Keyboard.prototype.isShift = function () {
     return this.shift;
+};
+voyc.Keyboard.prototype.isAlt = function () {
+    return this.alt;
 };
