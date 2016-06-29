@@ -11,10 +11,11 @@ voyc.Hud = function() {
 	else voyc.Hud._instance = this;
 
 	this.elem = {};
-	this.spinning = false;
+	this.keyIsDown = false;
 	this.mapzoomer = {};
+	this.mapzoomerIsHot = false;
 	this.timeslider = {};
-	this.sliding = false;
+	this.timesliderIsHot = false;
 	this.dragging = false;
 	this.dragOrigin = false;
 	this.dragCenter = false;
@@ -94,7 +95,7 @@ voyc.Hud.prototype.attach = function() {
 		evt.stopPropagation();
 		voyc.plunder.setOption(voyc.option.GRATICULE, evt.target.checked);
 		if (voyc.plunder.getOption(voyc.option.CHEAT)) {
-			voyc.plunder.render(0,0);
+			voyc.plunder.render(0);
 		}
 	}, false);
 	document.getElementById('menupresentday').addEventListener('click', function(evt) {
@@ -106,32 +107,20 @@ voyc.Hud.prototype.attach = function() {
 		self.closeAnnouncement();
 	}, false);
 	
-	// mapzoom slider
+	// map zoomer
 	document.getElementById('mapzoom').addEventListener('click', function(evt) {
 		if (voyc.plunder.getOption(voyc.option.CHEAT)) {
 			evt.stopPropagation();
 		}
 	}, false);
 	this.mapzoomer = document.getElementById('mapzoomer');
-	this.mapzoomer.addEventListener('mousedown', function(evt) {
-		if (voyc.plunder.getOption(voyc.option.CHEAT)) {
-			evt.stopPropagation();
-			voyc.plunder.world.zoomStart();
-		}
-	}, false);
-	this.mapzoomer.addEventListener('input', function(evt) {
-		if (voyc.plunder.getOption(voyc.option.CHEAT)) {
-			voyc.plunder.world.zoomPct(this.value);
-			evt.stopPropagation();
-		}
-	}, false);
-	this.mapzoomer.addEventListener('mouseup', function(evt) {
-		if (voyc.plunder.getOption(voyc.option.CHEAT)) {
-			voyc.plunder.world.zoomPct(this.value);
-			evt.stopPropagation();
-			voyc.plunder.world.zoomStop();
-		}
-	}, false);
+	this.mapzoomer.min = voyc.plunder.world.scale.min;
+	this.mapzoomer.max = voyc.plunder.world.scale.max;
+	this.mapzoomer.addEventListener('mousedown', function(evt) {self.mapZoomerDown(evt)}, false);
+	this.mapzoomer.addEventListener('touchstart', function(evt) {self.mapZoomerDown(evt)}, false);
+	this.mapzoomer.addEventListener('input', function(evt) {self.mapZoomerMove(evt)}, false);
+	this.mapzoomer.addEventListener('touchend', function(evt) {self.mapZoomerUp(evt)}, false);
+	this.mapzoomer.addEventListener('mouseup', function(evt) {self.mapZoomerUp(evt)}, false);
 
 	// time slider
 	document.getElementById('timeslide').addEventListener('click', function(evt) {
@@ -140,27 +129,27 @@ voyc.Hud.prototype.attach = function() {
 		}
 	}, false);
 	this.timeslider = document.getElementById('timeslider');
-	this.timeslider.min = voyc.plunder.startyear;
-	this.timeslider.max = voyc.plunder.lastyear;
+	this.timeslider.min = voyc.plunder.time.begin;
+	this.timeslider.max = voyc.plunder.time.end;
 	this.timeslider.addEventListener('mousedown', function(evt) {
 		if (voyc.plunder.getOption(voyc.option.CHEAT)) {
-			self.sliding = true;
+			self.timesliderIsHot = true;
 			evt.stopPropagation();
 			voyc.plunder.timeslideStart();
 		}
 	}, false);
 	this.timeslider.addEventListener('input', function(evt) {
 		if (voyc.plunder.getOption(voyc.option.CHEAT)) {
-			voyc.plunder.timeslideValue(this.value);
+			voyc.plunder.timeslideValue(parseInt(this.value,10));
 			evt.stopPropagation();
 		}
 	}, false);
 	this.timeslider.addEventListener('mouseup', function(evt) {
 		if (voyc.plunder.getOption(voyc.option.CHEAT)) {
-			voyc.plunder.timeslideValue(this.value);
-			self.sliding = false;
+			//voyc.plunder.timeslideValue(this.value);
 			evt.stopPropagation();
 			voyc.plunder.timeslideStop();
+			self.timesliderIsHot = false;
 		}
 	}, false);
 
@@ -169,12 +158,20 @@ voyc.Hud.prototype.attach = function() {
 	this.elem.addEventListener('mousedown',  voyc.Hud.dgrab, false);
 
     window.addEventListener('keydown', function(evt) {
+		console.log('keydown');
 		if (evt.keyCode == voyc.Key.C && evt.altKey) {
 			voyc.plunder.setOption(voyc.option.CHEAT, !voyc.plunder.getOption(voyc.option.CHEAT));
 			return;
 		}
 		if (voyc.plunder.getOption(voyc.option.CHEAT)) {
-			if (evt.shiftKey) {
+			if (evt.ctrlKey) {
+				switch (evt.keyCode) {
+					case 39: voyc.plunder.timeForward(); break;
+					case 37: voyc.plunder.timeBackward(); break;
+					default: return;
+				}
+			}
+			else if (evt.shiftKey) {
 				switch (evt.keyCode) {
 					case 39: voyc.plunder.world.spin(voyc.Spin.CW); break;
 					case 37: voyc.plunder.world.spin(voyc.Spin.CCW); break;
@@ -193,17 +190,38 @@ voyc.Hud.prototype.attach = function() {
 				}
 			}
 			evt.preventDefault();
-			voyc.plunder.world.drawFast();
-			this.spinning = true;
+			this.keyIsDown = true;
 		}
 	}, false);
     window.addEventListener('keyup', function(evt) {
-		if (this.spinning) {
+		if (this.keyIsDown) {
+			this.keyIsDown = false;
 			evt.preventDefault();
-			voyc.plunder.world.draw();
-			this.spinning = false;
+			voyc.plunder.world.zoomStop();
 		}
 	}, false);
+}
+
+// mapzoomer
+voyc.Hud.prototype.mapZoomerDown = function (evt) {
+	if (voyc.plunder.getOption(voyc.option.CHEAT)) {
+		evt.stopPropagation();
+		this.mapzoomerIsHot = true;
+		voyc.plunder.world.zoomStart();
+	}
+}
+voyc.Hud.prototype.mapZoomerMove = function (evt) {
+	if (voyc.plunder.getOption(voyc.option.CHEAT)) {
+		evt.stopPropagation();
+		voyc.plunder.world.zoomValue(parseInt(evt.target.value,10));
+	}
+}
+voyc.Hud.prototype.mapZoomerUp = function (evt) {
+	if (voyc.plunder.getOption(voyc.option.CHEAT)) {
+		evt.stopPropagation();
+		voyc.plunder.world.zoomStop();
+		this.mapzoomerIsHot = false;
+	}
 }
 
 // if keyboard is in use, set a destination coordinate
@@ -288,11 +306,9 @@ voyc.Hud.prototype.setSpeed = function(speed) {
 }
 
 voyc.Hud.prototype.setTime = function(time) {
-	var fyear = Math.abs(time);
-	fyear += ' ' + ((time < 0) ? 'BCE' : 'CE');
-	document.getElementById('time').innerHTML = fyear;
-	if (!this.sliding) {
-		document.getElementById('timeslider').value = time;
+	document.getElementById('time').innerHTML = Math.abs(time) + ' ' + ((time < 0) ? 'BCE' : 'CE');
+	if (!this.timesliderIsHot) {
+		this.timeslider.value = time;
 	}
 }
 
@@ -314,7 +330,9 @@ voyc.Hud.prototype.closeScoreBox = function() {
 }
 
 voyc.Hud.prototype.setZoom = function(newvalue) {
-	this.mapzoomer.value = newvalue;
+	if (!this.mapzoomerIsHot) {
+		this.mapzoomer.value = newvalue;
+	}
 }
 
 /**

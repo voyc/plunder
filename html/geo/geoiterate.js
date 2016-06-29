@@ -343,7 +343,7 @@ voyc.GeoIterate.iterateePoint.prototype = {
 		}
 	},
 	geometryStart: function(geometry) {
-		geometry['q'] = (geometry['b'] < voyc.plunder.nowyear) && (voyc.plunder.nowyear < geometry['e']);
+		geometry['q'] = (geometry['b'] < voyc.plunder.time.now) && (voyc.plunder.time.now < geometry['e']);
 		this.pt = false;
 		return geometry['q'];
 	},

@@ -7,13 +7,14 @@
 voyc.World = function() {
 	this.elem = {};
 	this.co = [];
-	this.gamma = 0;
 	this.w = 0;
 	this.h = 0;
+
 	this.scale = {
 		now:0,
 		min:0,
 		max:0,
+		step:0,
 		game:0
 	}
 	this.diameter = 0;
@@ -23,8 +24,10 @@ voyc.World = function() {
 	this.path = function(){};
 	this.globe = {};
 	this.layer = [];
+
 	this.moved = true;
 	this.dragging = false;
+	this.zooming = false;
 	
 	this.option = {
 		scaleStep: .14,  // percentage of scale
@@ -49,13 +52,17 @@ voyc.World.prototype.setup = function(elem, co, w, h) {
 	this.co = co;
 	this.w = w;
 	this.h = h;
+	
+	this.elem.style.width = this.w + 'px';
+	this.elem.style.height = this.h + 'px';
 
 	// scale in pixels
 	this.diameter = Math.min(this.w, this.h);
 	this.radius = Math.round(this.diameter / 2);
-	this.scale.min = this.radius * .1;
-	this.scale.max = this.diameter * 3;
-	this.scale.game = this.diameter * 2;
+	this.scale.min = this.radius * .5;  // small number, zoomed out
+	this.scale.max = this.radius * 6;   // large number, zoomed in
+	this.scale.step = Math.round((this.scale.max - this.scale.min) * this.option.scaleStep);
+	this.scale.game = this.radius * 4;
 	this.scale.now = this.scale.game;
 	
 	this.projection = new voyc.OrthographicProjection();
@@ -93,7 +100,7 @@ voyc.World.prototype.setup = function(elem, co, w, h) {
 	this.iterateeEmpire.ctx = this.getLayer(voyc.layer.EMPIRE).ctx;
 	this.iterateeEmpire.colorstack = voyc.empireColors;
 	this.iterateeEmpire.geometryStart = function(geometry) {
-		geometry['q'] = geometry['b'] < voyc.plunder.nowyear && voyc.plunder.nowyear < geometry['e'];
+		geometry['q'] = geometry['b'] < voyc.plunder.time.now && voyc.plunder.time.now < geometry['e'];
 		if (geometry['q']) {
 			this.ctx.beginPath();
 		}
@@ -106,7 +113,6 @@ voyc.World.prototype.setup = function(elem, co, w, h) {
 	this.iterateeTreasure = new voyc.GeoIterate.iterateePoint();
 	this.iterateeTreasure.projection = this.projection;
 	this.iterateeTreasure.ctx = this.getLayer(voyc.layer.FOREGROUND).ctx;
-	this.iterateeTreasure.nowyear = voyc.plunder.nowyear;
 
 	this.iterateeGrid = new voyc.GeoIterate.iterateeLine();
 	this.iterateeGrid.projection = this.projection;
@@ -174,6 +180,7 @@ voyc.World.prototype.setupData = function() {
 }
 
 voyc.World.prototype.spin = function(dir) {
+	this.zooming = true;
 	switch(dir) {
 		case voyc.Spin.LEFT : this.co[0] -= this.option.spinStep; break;
 		case voyc.Spin.RIGHT: this.co[0] += this.option.spinStep; break;
@@ -184,43 +191,47 @@ voyc.World.prototype.spin = function(dir) {
 	}
 	this.moved = true;
 	this.projection.rotate([0-this.co[0], 0-this.co[1], 0-this.co[2]]);
+	voyc.plunder.render(0);
 }
 
+// zoomStart,zoomValue,zoomStop called on slider
 voyc.World.prototype.zoomStart = function() {
 	this.zooming = true;
 }
-
-voyc.World.prototype.zoomPct = function(pct) {
-	var diff = this.scale.max - this.scale.min;
-	var delta = Math.round(diff * (pct/100));
-	this.setScale(this.scale.min + delta);
-	this.drawFast();
+voyc.World.prototype.zoomValue = function(value) {
+	this.setScale(value);
+	this.zooming = true;
+	this.moved = true;
+	voyc.plunder.render(0);
 }
 voyc.World.prototype.zoomStop = function() {
+	this.moved = true;
 	this.zooming = false;
-	this.draw();
+	voyc.plunder.render(0);
 }
 
+// zoom called on keystrokes
 voyc.World.prototype.zoom = function(dir) {
-	var x = 0;
-	switch(dir) {
-		case voyc.Spin.IN: x = -1; break;
-		case voyc.Spin.OUT: x = 1; break;
-	}
-	this.setScale(this.scale.now + (x * this.option.scaleStep * this.scale.now));
-}
-
-voyc.World.prototype.setScale = function(newscale) {
 	function range(x,min,max) {
 		return Math.round(Math.min(max, Math.max(min, x)));
 	}
-	this.scale.now = range(newscale, this.scale.min, this.scale.max);
+	this.zooming = true;
+	var x = 0;
+	switch(dir) {
+		case voyc.Spin.IN: x = 1; break;
+		case voyc.Spin.OUT: x = -1; break;
+	}
+	var scale = this.scale.now + (this.scale.now * x * this.option.scaleStep);
+	scale = range(scale, this.scale.min, this.scale.max);
+	this.setScale(scale);
+	voyc.plunder.render(0);
+}
+
+voyc.World.prototype.setScale = function(newscale) {
+	this.scale.now = newscale;
 	this.projection.scale(this.scale.now);
 	this.moved = true;
-	var diff = this.scale.max - this.scale.min;
-	var zoompct = Math.round((this.scale.now / diff) * 100);
-	voyc.plunder.hud.setZoom(zoompct);
-	//console.log('scale:'+this.scale.now);
+	voyc.plunder.hud.setZoom(this.scale.now);
 }
 
 voyc.World.prototype.createLayer = function(useImageData, id) {
@@ -312,9 +323,10 @@ voyc.World.prototype.show = function() {
 	this.getLayer(voyc.layer.HUD).div.classList.remove('hidden');
 }
 
+// dragging, called by Hud when mouse or touch is dragging the globe
 voyc.World.prototype.drag = function(pt) {
 	if (pt) {
-		if (!this.dragging) {
+		if (!this.dragging) {  // first time
 			this.dragProjection = voyc.clone(this.projection);
 		}
 		this.dragging = true;
@@ -322,13 +334,12 @@ voyc.World.prototype.drag = function(pt) {
 		this.co[0] = co[0];
 		this.co[1] = co[1];
 		this.projection.center(this.co);
-		this.moved = true;
-		this.drawFast();
 	}
-	else {
+	else { // last time
 		this.dragging = false;
-		this.draw();
 	}
+	this.moved = true;
+	voyc.plunder.render(0);
 }
 
 voyc.World.prototype.setCenterPoint = function(pt) {
@@ -337,7 +348,7 @@ voyc.World.prototype.setCenterPoint = function(pt) {
 	this.co[1] = co[1];
 	this.projection.center(this.co);
 	this.moved = true;
-	this.draw();
+	voyc.plunder.render(0);
 }
 voyc.World.prototype.getCenterPoint = function() {
 	return ([Math.round(this.w/2), Math.round(this.h/2)]);
@@ -356,7 +367,7 @@ voyc.World.prototype.showHiRes = function(boo) {
 	}
 }
 
-voyc.World.prototype.drawFast = function() {
+voyc.World.prototype.drawOceansAndLand = function() {
 	var ctx = this.getLayer(voyc.layer.FEATURES).ctx;
 	ctx.clearRect(0, 0, this.w, this.h);
 
@@ -376,11 +387,17 @@ voyc.World.prototype.drawFast = function() {
 	this.iterator.iterateCollection(this.data.land, this.iterateeLand);
 	ctx.fill();
 
+}
+
+voyc.World.prototype.drawGrid = function() {
 	var ctx = this.getLayer(voyc.layer.REFERENCE).ctx;
 	ctx.clearRect(0, 0, this.w, this.h);
 	if (voyc.plunder.getOption(voyc.option.GRATICULE)) {
 		this.iterator.iterateCollection(window['voyc']['data']['grid'], this.iterateeGrid);
 	}
+}
+
+voyc.World.prototype.drawRivers = function() {
 }
 
 voyc.World.prototype.draw = function() {
@@ -498,12 +515,13 @@ voyc.empireColors = ['#f00', '#0f0', '#00f', '#ff0', '#0ff', '#f0f'];
 
 /** @enum */
 voyc.Spin = {
-	CW:0,
-	CCW:1,
-	IN:2,
-	OUT:3,
-	RIGHT:4,
-	LEFT:5,
-	UP:6,
-	DOWN:7,
+	STOP:0,
+	CW:1,
+	CCW:2,
+	IN:3,
+	OUT:4,
+	RIGHT:5,
+	LEFT:6,
+	UP:7,
+	DOWN:8,
 }		

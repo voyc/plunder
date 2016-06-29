@@ -6,7 +6,9 @@ html, body {
 	margin: 0;
 	-webkit-text-size-adjust:none;  /* for iphone */
 }
-
+#world {
+	background-color:black;
+}
 /* each layer covers the screen */
 .layer {
 	position:absolute;

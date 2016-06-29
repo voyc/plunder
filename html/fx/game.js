@@ -7,7 +7,7 @@
 */
 voyc.Game = function() {
 	this.running = false;
-	this.onRender = function(delta,timestamp) {};
+	this.onRender = function(timestamp) {};
 	this.previousTimestamp = 0;
 	if (log) {
 		this.starttime = 0;
@@ -38,14 +38,14 @@ voyc.Game.prototype.step = function (timestamp) {
 	}
 	var delta = timestamp - this.previousTimestamp;
     this.previousTimestamp = timestamp;
-	this.render(delta, timestamp);
+	this.render(timestamp);
 	if (this.running) {
 		var self = this;
 		window.requestAnimationFrame(function(timestamp) {self.step(timestamp)});
 	}
 }
 
-voyc.Game.prototype.render = function (delta,timestamp) {
-	log&&!(this.frames % 1000)&&console.log('render ' + delta.toFixed(2) + ' ' + this.elapsed.toFixed(0) + ' ' + this.frames + ' ' + this.fps.toFixed(2));
-	this.onRender(delta,timestamp);
+voyc.Game.prototype.render = function (timestamp) {
+	log&&!(this.frames % 1000)&&console.log('render ' + this.elapsed.toFixed(0) + ' ' + this.frames + ' ' + this.fps.toFixed(2));
+	this.onRender(timestamp);
 }

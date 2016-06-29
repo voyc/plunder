@@ -29,14 +29,25 @@ voyc.Plunder = function() {
 	this.options = {};
 	this.score = 0;
 
-	// time
-	this.timesliding = false;
-	this.starttime = 0;
-	this.nowtime = 0;
-	this.startyear = -3500;
-	this.lastyear = (new Date().getFullYear());
-	this.nowyear = this.startyear;
-	this.speedoftime = 10; // years per second	
+	this.option = {
+		startYear: -3500,
+		timeStepPct: .05,
+	}
+	
+	this.timestamp = {
+		start:0,
+		now: 0
+	}
+
+	this.time = {
+		begin: 0,
+		end: 0,
+		now: 0,
+		step: 0,
+		moved: false,
+		sliding: false,
+		speed: 10 // years per second	
+	}
 	
 	// alias to external data
 	this.treasure = window['voyc']['data']['treasure'];
@@ -63,6 +74,11 @@ voyc.Plunder.prototype.toString = function () {
 
 voyc.Plunder.prototype.load = function () {
 	log&&console.log(voyc.timer()+'windows load event');
+
+	this.time.begin = this.option.startYear;
+	this.time.end = (new Date().getFullYear());
+	this.time.now = this.option.startYear;
+	this.time.step = Math.round((this.time.end - this.time.begin) * this.option.timeStepPct);
 
 	var self = this;
 	voyc.str = new voyc.Str();
@@ -127,7 +143,7 @@ voyc.Plunder.prototype.load = function () {
 	log&&console.log(voyc.timer()+'script load start');
 	
 	this.game = new voyc.Game();
-	this.game.onRender = function(elapsed,timestamp) {self.render(elapsed,timestamp)};
+	this.game.onRender = function(timestamp) {self.render(timestamp)};
 
 	this.keyboard = new voyc.Keyboard();
 	this.keyboard.listenForEvents([
@@ -168,7 +184,7 @@ voyc.Plunder.prototype.load = function () {
 	this.hud = new voyc.Hud();
 	this.hud.setup(this.world.getLayer(voyc.layer.HUD).div);
 	this.hud.attach();
-	this.hud.setTime(this.nowyear);
+	this.hud.setTime(this.time.now);
 	this.hud.setWhereami(this.hero.co, '', '');
 
 	this.world.setScale(this.world.scale.now);
@@ -241,7 +257,7 @@ voyc.Plunder.prototype.sync = function (name, success) {
 
 		log&&console.log(voyc.timer()+'start game engine');
 		if (this.getOption(voyc.option.CHEAT)) {
-			this.render(0,0);
+			this.render(0);
 			this.hud.showCheat(true);
 		}
 		else {
@@ -263,12 +279,38 @@ voyc.Plunder.prototype.sync = function (name, success) {
 }
 
 /**
-	render.  Main loop.  Called by Game animation engine.
+	render.  Main loop.  
+		Called by Game animation engine.
+		Called manually when in Cheat mode.
 */
-voyc.Plunder.prototype.render = function (delta, timestamp) {
+voyc.Plunder.prototype.render = function (timestamp) {
 	if (timestamp) {
 		this.calcTime(timestamp);
 	}
+
+	// draw world		
+	if (this.world.moved || this.time.moved) {
+		var ctx = this.world.getLayer(voyc.layer.FOREGROUND).ctx;
+		ctx.clearRect(0, 0, voyc.plunder.world.w, voyc.plunder.world.h);
+		var ctx = this.world.getLayer(voyc.layer.EMPIRE).ctx;
+		ctx.clearRect(0, 0, voyc.plunder.world.w, voyc.plunder.world.h);
+	}
+	if (this.world.moved) {
+		this.world.drawOceansAndLand();
+		this.world.drawGrid();
+	}	
+	if (this.world.moved && !this.world.dragging && !this.world.zooming) {
+		this.world.drawFeatures();
+		this.world.drawRivers();
+	}
+	if ((this.world.moved || this.time.moved) && !this.world.dragging && !this.world.zooming) {
+		this.drawTreasure(ctx);
+		this.drawEmpire(ctx);
+	}
+	this.world.moved = false;
+	this.time.moved = false;
+	return;
+
 	
 	// update
 	var keyed = this.hud.checkKeyboard();
@@ -299,42 +341,57 @@ voyc.Plunder.prototype.render = function (delta, timestamp) {
 }
 
 voyc.Plunder.prototype.calcTime = function (timestamp) {
-	if (!this.starttime) {
-		this.starttime = timestamp;
+	if (!this.timestamp.start) {
+		this.timestamp.start = timestamp;
 	}
-	this.nowtime = timestamp;
-	var ms = this.nowtime - this.starttime;
-	var year = Math.round(this.startyear + ((ms / 1000) * this.speedoftime));
+	this.timestamp.now = timestamp;
+	var ms = this.timestamp.now - this.timestamp.start;
+	var year = Math.round(this.time.begin + ((ms / 1000) * this.time.speed));
 	this.setTime(year);
 }
 
 voyc.Plunder.prototype.setTime = function (year) {
-	this.nowyear = year;
+	this.time.now = year;
+	this.time.moved = true;
 	
 	// gameover
-	if (!this.getOption(voyc.option.CHEAT) && this.nowyear >= this.lastyear) {
-		this.nowyear = this.lastyear;
+	if (!this.getOption(voyc.option.CHEAT) && this.time.now >= this.time.end) {
+		this.time.now = this.time.end;
 		this.game.stop();
 		this.hud.announce('Game Over', false);
 	}
 
-	this.hud.setTime(this.nowyear);
+	this.hud.setTime(this.time.now);
 }
 
+// called on timeslider 
 voyc.Plunder.prototype.timeslideStart = function() {
-	this.timesliding = true;
+	this.time.sliding = true;
 }
-
 voyc.Plunder.prototype.timeslideValue = function(value) {
-//	var diff = this.lastyear - this.startyear;
-//	var delta = Math.round(diff * (pct/100));
-//	this.setTime(this.startyear + delta);
 	this.setTime(value);
-	this.drawEmpire();
-	this.drawTreasure();
+	this.render(0);
 }
 voyc.Plunder.prototype.timeslideStop = function() {
-	this.timesliding = false;
+	this.time.sliding = false;
+}
+
+// called on keystrokes
+voyc.Plunder.prototype.timeForward = function() {
+	function range(x,min,max) {
+		return Math.round(Math.min(max, Math.max(min, x)));
+	}
+	var time = range(this.time.now + this.time.step, this.time.begin, this.time.end);
+	this.setTime(time);
+	this.time.sliding = true;
+}
+voyc.Plunder.prototype.timeBackward = function(value) {
+	function range(x,min,max) {
+		return Math.round(Math.min(max, Math.max(min, x)));
+	}
+	var time = range(this.time.now - this.time.step, this.time.begin, this.time.end);
+	this.setTime(time);
+	this.time.sliding = true;
 }
 
 /*
@@ -583,7 +640,7 @@ voyc.Plunder.prototype.drawTreasure = function (ctx) {
 			var pt = this.world.projection.project([t['lng'], t['lat']]);
 			if (pt 
 					&& (pt[0] > 0) && (pt[0]<this.world.w) && (pt[1] > 0) && (pt[1]<this.world.h)
-					&& (t['b'] < this.nowyear) && (t['e'] > this.nowyear)
+					&& (t['b'] < this.time.now) && (t['e'] > this.time.now)
 				) {
 				t['q'] = true;  // is qualified
 				t['x'] = pt[0];
@@ -640,7 +697,7 @@ voyc.Plunder.prototype.resize = function (s) {
 	this.world.resize(document.body.clientWidth, document.body.clientHeight);
 	this.world.moved = true;
 	if (this.getOption(voyc.option.CHEAT)) {
-		this.render(0,0);
+		this.render(0);
 	}
 }
 
