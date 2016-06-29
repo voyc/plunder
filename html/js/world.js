@@ -35,6 +35,7 @@ voyc.World = function() {
 	this.iterateeLand = {};
 	this.iterateeCountries = {};
 	this.iterateeEmpire = {};
+	this.iterateeTreasure = {};
 	this.iterateeGrid = {};
 	this.iterateeFeature = {};
 	this.iterateeHitTest = {};
@@ -101,6 +102,11 @@ voyc.World.prototype.setup = function(elem, co, w, h) {
 	this.iterateeEmpire.collectionStart = function(collection) {
 		this.ctx.clearRect(0,0,this.ctx.canvas.width,this.ctx.canvas.height);
 	};
+
+	this.iterateeTreasure = new voyc.GeoIterate.iterateePoint();
+	this.iterateeTreasure.projection = this.projection;
+	this.iterateeTreasure.ctx = this.getLayer(voyc.layer.FOREGROUND).ctx;
+	this.iterateeTreasure.nowyear = voyc.plunder.nowyear;
 
 	this.iterateeGrid = new voyc.GeoIterate.iterateeLine();
 	this.iterateeGrid.projection = this.projection;

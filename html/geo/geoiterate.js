@@ -91,10 +91,11 @@ voyc.GeoIterate.prototype.iterateGeometry = function(geometry, iteratee) {
 			for each point {
 				this.iteratePoint(pt);
 			break;
-		case 'Point':
-			this.iteratePoint(pt);
-			break;
 		*/
+		case 'Point':
+			iteratee.point(geometry['coordinates']);
+			//this.iteratePoint(geometry['coordinates'],iteratee);
+			break;
 	}
 	iteratee.geometryEnd(geometry);
 }
@@ -318,6 +319,57 @@ voyc.GeoIterate.iterateeLine.prototype = {
 	collectionEnd: function(collection) {
 		this.ctx.stroke();
 	},
+}
+
+/** @constructor */
+voyc.GeoIterate.iterateePoint = function() {
+	this.projection = /**@type voyc.OrthographicProjection*/({});
+	this.ctx = /**@type CanvasRenderingContext2D */({});
+	this.draw = {
+		image:{},
+		w:0,
+		h:0
+	};
+	this.pt = [];
+}
+voyc.GeoIterate.iterateePoint.prototype = {
+	point: function(co) {
+		var pt = this.projection.project(co);
+		if (pt && (pt[0] > 0) && (pt[0]<this.ctx.canvas.width) && (pt[1] > 0) && (pt[1]<this.ctx.canvas.height)){
+			this.pt = pt;
+		}
+		else {
+			this.pt = false;
+		}
+	},
+	geometryStart: function(geometry) {
+		geometry['q'] = (geometry['b'] < voyc.plunder.nowyear) && (voyc.plunder.nowyear < geometry['e']);
+		this.pt = false;
+		return geometry['q'];
+	},
+	geometryEnd: function(geometry) {
+		geometry['pt'] = this.pt;
+		geometry['v'] = (this.pt) ? true : false;
+		if (this.pt) {
+			this.ctx.drawImage(
+				this.draw.image, // image
+
+				0, // source x
+				0, // source y
+				this.draw.w, // source width
+				this.draw.h, // source height
+
+				this.pt[0] - (this.draw.w/2),  // target x
+				this.pt[1] - (this.draw.h/2), // target y
+				this.draw.w,   // target width
+				this.draw.h   // target height
+			);
+		}
+	},
+	collectionStart: function(collection) {
+		this.ctx.clearRect(0,0,this.ctx.canvas.width,this.ctx.canvas.height);
+	},
+	collectionEnd: function(collection) {},
 }
 
 /** @constructor */

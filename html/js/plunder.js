@@ -225,6 +225,13 @@ voyc.Plunder.prototype.sync = function (name, success) {
 		this.world.setupData();
 		this.hero.setImage(this.asset.get('hero'));
 
+		var img = this.asset.get('treasure');
+		this.world.iterateeTreasure.draw = {
+			image:img,
+			w:img.width,
+			h:img.height
+		};
+
 		this.world.show();
 		document.getElementById('loader').classList.add('hidden');
 		setTimeout(function() {
@@ -324,6 +331,7 @@ voyc.Plunder.prototype.timeslideValue = function(value) {
 //	this.setTime(this.startyear + delta);
 	this.setTime(value);
 	this.drawEmpire();
+	this.drawTreasure();
 }
 voyc.Plunder.prototype.timeslideStop = function() {
 	this.timesliding = false;
@@ -565,6 +573,9 @@ voyc.Plunder.prototype.drawEffects = function (ctx) {
 }
 	
 voyc.Plunder.prototype.drawTreasure = function (ctx) {
+	this.world.iterator.iterateCollection(window['voyc']['data']['treasure'], this.world.iterateeTreasure);
+	return;
+	
 	for (var key in this.treasure) {
 		var t = this.treasure[key];
 		if (!t['cap']) {
