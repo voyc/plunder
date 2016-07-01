@@ -158,7 +158,6 @@ voyc.Hud.prototype.attach = function() {
 	this.elem.addEventListener('mousedown',  voyc.Hud.dgrab, false);
 
     window.addEventListener('keydown', function(evt) {
-		console.log('keydown');
 		if (evt.keyCode == voyc.Key.C && evt.altKey) {
 			voyc.plunder.setOption(voyc.option.CHEAT, !voyc.plunder.getOption(voyc.option.CHEAT));
 			return;

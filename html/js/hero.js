@@ -1,22 +1,17 @@
-/** @enum */
-voyc.speed = {
-	WALK:200, // KM per decade (kmpd)
-	RUN:400,
-	SWIM:800,
-	FLY:3000,
-};
-
 /**
 	@constructor
 */
 voyc.Hero = function() {
+	this.ctx = /**@type CanvasRenderingContext2D */({});
 	this.sprite = {};
 	this.co = [0,0];
 	this.pt = [0,0];
 	this.ptPrev = [0,0];
 	this.ptDiff = [0,0];
+	this.moved = false;
 	this.frame = 0;
 	this.image = {};
+	this.crosshair = {};
 	this.dest = {
 		moving:false,
 		ptStart: [],
@@ -31,12 +26,13 @@ voyc.Hero = function() {
 	}
 	this.speedBase = voyc.speed.WALK;
 	this.speedBest = this.speedBase;
-	this.speedNow = 0;
+	this.speedNow = 200;
 }
 
 voyc.Hero.prototype.setLocation = function(co) {
 	this.co = co;
-	this.pt = voyc.plunder.world.projection.invert(this.co);
+	this.pt = voyc.plunder.world.projection.project(this.co);
+	this.moved = true;
 }
 
 voyc.Hero.prototype.setSprite = function(sprite) {
@@ -47,24 +43,25 @@ voyc.Hero.prototype.setImage = function(image) {
 	this.image = image;
 }
 
+voyc.Hero.prototype.setCrosshair = function(image) {
+	this.crosshair = image;
+}
+
 // called by mouse click handler and checkKeyboard()
 voyc.Hero.prototype.createDestination = function(pt, isKeyboard) {
 	this.dest.ptEnd = pt;
 	this.dest.moving = true;
 	this.dest.isKeyboard = isKeyboard || false;
-	this.dest.starttime = 0;
+	this.dest.starttime = voyc.plunder.previousTimestamp;
 	this.dest.ptStart = this.pt;
 	this.dest.angle = voyc.Geo.calcAngle(this.dest.ptStart, this.dest.ptEnd);
 	this.dest.coStart = this.co;
-	this.dest.coEnd = voyc.plunder.world.projection.invert(this.dest.ptEnd);   // co = geocode(pt)
+	this.dest.coEnd = voyc.plunder.world.projection.invert(this.dest.ptEnd);
 	var rads = voyc.Geo.distance(this.dest.coStart,this.dest.coEnd);
 	this.dest.distance = rads * voyc.plunder.world.radiusKm;
 }
 
-voyc.Hero.prototype.stepDestination = function(speed, deltatime, timestamp) {
-	if (!this.dest.starttime) {
-		this.dest.starttime = timestamp - deltatime;
-	}
+voyc.Hero.prototype.stepDestination = function(speed, timestamp) {
 	this.dest.stepDistance = speed * ((timestamp - this.dest.starttime) / 1000);
 	var t = this.dest.stepDistance / this.dest.distance;
 	if (t >= 1) {
@@ -88,19 +85,19 @@ voyc.Hero.prototype.isMoving = function() {
 }
 
 // called by onrender.  if we have a destination, move towards it.
-voyc.Hero.prototype.move = function (deltatime, timestamp, keyed) {
+voyc.Hero.prototype.move = function (keyed, timestamp) {
 	if (!keyed && this.dest.isKeyboard) {
 		this.stop();
 	}
 
 	if (this.isMoving()) {
-		var pt = this.stepDestination(this.speedNow,deltatime, timestamp);
+		this.stepDestination(this.speedNow, timestamp);
 	}
 	
-	return this.isMoving();
+	this.moved = this.isMoving();
 }
 	
-voyc.Hero.prototype.draw = function (ctx) {
+voyc.Hero.prototype.draw = function () {
 	// if hero is moving, increment the frame number
 	if (this.isMoving()) {
 		this.frame++;
@@ -122,18 +119,20 @@ voyc.Hero.prototype.draw = function (ctx) {
 		}
 	}
 
-	var r = this.dest.angle	* (Math.PI / 180);  // degrees to radians
+	// begin drawing
+	this.ctx.clearRect(0, 0, voyc.plunder.world.w, voyc.plunder.world.h);
 
 	// temporarily shift the output canvas to the hero's location
-	ctx.save();
+	this.ctx.save();
 	var tx = this.pt[0]; // + (this.w/2);
 	var ty = this.pt[1]; // + (this.h/2);
-	ctx.translate(tx,ty);
+	this.ctx.translate(tx,ty);
 
 	// rotate in the direction of travel
-	ctx.rotate(r);
+	var r = this.dest.angle	* (Math.PI / 180);  // degrees to radians
+	this.ctx.rotate(r);
 	
-	ctx.drawImage(
+	this.ctx.drawImage(
 		this.image, // image
 
 		(col * this.sprite.w), // source x
@@ -146,5 +145,36 @@ voyc.Hero.prototype.draw = function (ctx) {
 		this.sprite.w,  // target width
 		this.sprite.h   // target height
 	);
-	ctx.restore();
+	this.ctx.restore();
+};
+
+voyc.Hero.prototype.showCheat = function (boo) {
+	if (boo) {
+		this.ctx.clearRect(0, 0, voyc.plunder.world.w, voyc.plunder.world.h);
+		this.ctx.drawImage(
+			this.crosshair, // image
+
+			0, // source x
+			0, // source y
+			this.crosshair.width, // source width
+			this.crosshair.height, // source height
+
+			voyc.plunder.world.w/2, // target x     // draw at 0,0 minus the offset, translate has positioned x,y at 0,0
+			voyc.plunder.world.h/2, // target y
+			this.crosshair.width,   // target width
+			this.crosshair.height  // target height
+		)	;
+	}
+	else {
+			
+	}
+	
+}
+
+/** @enum */
+voyc.speed = {
+	WALK:200, // KM per decade (kmpd)
+	RUN:400,
+	SWIM:800,
+	FLY:3000,
 };

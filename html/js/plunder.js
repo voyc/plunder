@@ -11,6 +11,7 @@ voyc.Plunder = function() {
 	this.w = 0;
 	this.h = 0;
     this.previousElapsed = 0;
+	this.savedGame = {};
 	
 	// object model
 	this.asset = {};
@@ -24,7 +25,7 @@ voyc.Plunder = function() {
 	this.hud = {};
 
 	this.loadnum = 2;
-	this.loadmax = 19;
+	this.loadmax = 20;
 	this.loaded = {};
 	this.options = {};
 	this.score = 0;
@@ -106,6 +107,7 @@ voyc.Plunder.prototype.load = function () {
 		{key:'explode' ,path:path+'sprites/explosion-1.png'},
 		{key:'tileset' ,path:path+'images/tiles.png'},
 		{key:'reddot'  ,path:path+'images/reddot.png'},
+		{key:'crosshair',path:path+'images/crosshair.png'},
 		{key:'redxbox' ,path:path+'images/red-xbox.png'},
 		{key:'bluebox' ,path:path+'images/blue-xbox.png'},
 		{key:'treasure',path:path+'images/chest32.png'},
@@ -176,6 +178,7 @@ voyc.Plunder.prototype.load = function () {
 	this.hero = new voyc.Hero();
 	this.hero.setLocation([80,20]);
 	this.hero.setSprite(this.sprites.hero);
+	this.hero.ctx = this.world.getLayer(voyc.layer.HERO).ctx;
 
 	// set static class variables in the Effect object
 	voyc.Effect.asset = this.asset;
@@ -192,15 +195,42 @@ voyc.Plunder.prototype.load = function () {
 	// setup UI
 	var w = document.getElementById('world');
 	w.removeAttribute('hidden');
-	var w = document.getElementById('loader');
+	w = document.getElementById('loader');
 	w.classList.add('visible');
+}
+
+voyc.Plunder.prototype.saveGame = function() {
+	var sgame = {};
+	sgame.worldco = this.world.co;
+	sgame.heroco  = this.hero.co;
+	sgame.time    = this.time.now;
+	sgame.score   = this.score;
+	this.savedGame = sgame;
+}
+voyc.Plunder.prototype.restoreGame = function() {
+	var sgame = this.savedGame;
+	this.world.co = sgame.worldco;
+	this.hero.co  = sgame.heroco ;
+	this.time.now = sgame.time   ;
+	this.score    = sgame.score  ;
+}
+
+voyc.Plunder.prototype.cheat = function(boo) {
+	if (boo) {
+		this.saveGame();
+	}
+	else {
+		this.restoreGame();
+	}
+	this.hud.showCheat(boo);
+	this.hero.showCheat(boo);
 }
 
 voyc.Plunder.prototype.setOption = function (option,value) {
 	this.options[option] = value;
 	localStorage.setItem(voyc.Plunder.storageKey, JSON.stringify(this.options));
 	if (option == voyc.option.CHEAT) {
-		this.hud.showCheat(value);
+		this.cheat(value);
 	}
 	if (option == voyc.option.HIRES) {
 		this.world.showHiRes(value);
@@ -240,6 +270,7 @@ voyc.Plunder.prototype.sync = function (name, success) {
 
 		this.world.setupData();
 		this.hero.setImage(this.asset.get('hero'));
+		this.hero.setCrosshair(this.asset.get('crosshair'));
 
 		var img = this.asset.get('treasure');
 		this.world.iterateeTreasure.draw = {
@@ -257,8 +288,8 @@ voyc.Plunder.prototype.sync = function (name, success) {
 
 		log&&console.log(voyc.timer()+'start game engine');
 		if (this.getOption(voyc.option.CHEAT)) {
+			this.cheat(true);
 			this.render(0);
-			this.hud.showCheat(true);
 		}
 		else {
 			this.game.start();
@@ -288,6 +319,10 @@ voyc.Plunder.prototype.render = function (timestamp) {
 		this.calcTime(timestamp);
 	}
 
+	// update
+	var keyed = this.hud.checkKeyboard();
+	this.hero.move(keyed, timestamp);
+
 	// draw world		
 	if (this.world.moved || this.time.moved) {
 		var ctx = this.world.getLayer(voyc.layer.FOREGROUND).ctx;
@@ -304,11 +339,19 @@ voyc.Plunder.prototype.render = function (timestamp) {
 		this.world.drawRivers();
 	}
 	if ((this.world.moved || this.time.moved) && !this.world.dragging && !this.world.zooming) {
-		this.drawTreasure(ctx);
+		var ctx = this.world.getLayer(voyc.layer.EMPIRE).ctx;
 		this.drawEmpire(ctx);
+		ctx = this.world.getLayer(voyc.layer.FOREGROUND).ctx;
+		this.drawTreasure(ctx);
 	}
+	if ((this.world.moved || this.hero.moved) && !this.getOption(voyc.option.CHEAT)) {
+		this.hero.draw();
+	}
+
 	this.world.moved = false;
 	this.time.moved = false;
+	this.hero.moved = false;
+	this.previousTimestamp = timestamp;
 	return;
 
 	

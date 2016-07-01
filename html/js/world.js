@@ -53,9 +53,6 @@ voyc.World.prototype.setup = function(elem, co, w, h) {
 	this.w = w;
 	this.h = h;
 	
-	this.elem.style.width = this.w + 'px';
-	this.elem.style.height = this.h + 'px';
-
 	// scale in pixels
 	this.diameter = Math.min(this.w, this.h);
 	this.radius = Math.round(this.diameter / 2);
@@ -74,6 +71,7 @@ voyc.World.prototype.setup = function(elem, co, w, h) {
 	//this.pathsvg.projection(this.projection);
 
 	// these are the map layers
+	this.layer[voyc.layer.BACKGROUND] = this.createLayerDiv('background');
 	this.layer[voyc.layer.FASTBACK] = this.createLayer(false, 'fastback');
 	this.layer[voyc.layer.FEATURES] = this.createLayer(false, 'features');
 	this.layer[voyc.layer.SLOWBACKA] = this.createLayer(true, 'slowbacka');
@@ -81,6 +79,7 @@ voyc.World.prototype.setup = function(elem, co, w, h) {
 	this.layer[voyc.layer.REFERENCE] = this.createLayer(false, 'reference');
 	this.layer[voyc.layer.EMPIRE] = this.createLayer(false, 'empire');
 	this.layer[voyc.layer.FOREGROUND] = this.createLayer(false, 'foreground');
+	this.layer[voyc.layer.HERO] = this.createLayer(false, 'hero');
 	this.layer[voyc.layer.HUD] = this.createLayerDiv('hud');
 
 	// setup interator objects
@@ -310,16 +309,15 @@ voyc.World.prototype.getLayer = function(layer) {
 
 // this is only called once during setup
 voyc.World.prototype.show = function() {
-
-	// first time
+	this.getLayer(voyc.layer.BACKGROUND).div.classList.remove('hidden');
 	this.getLayer(voyc.layer.FASTBACK).canvas.classList.remove('hidden');
 	this.getLayer(voyc.layer.FEATURES).canvas.classList.remove('hidden');
-
 	this.showHiRes(voyc.plunder.getOption(voyc.option.HIRES));
 	this.getLayer(voyc.layer.RIVERS).svg.classList.remove('hidden');
 	this.getLayer(voyc.layer.REFERENCE).canvas.classList.remove('hidden');
 	this.getLayer(voyc.layer.EMPIRE).canvas.classList.remove('hidden');
 	this.getLayer(voyc.layer.FOREGROUND).canvas.classList.remove('hidden');
+	this.getLayer(voyc.layer.HERO).canvas.classList.remove('hidden');
 	this.getLayer(voyc.layer.HUD).div.classList.remove('hidden');
 }
 
@@ -493,14 +491,16 @@ voyc.World.prototype.drawFeatures = function() {
 
 /** @enum */
 voyc.layer = {
-	SLOWBACKA:0,
+	BACKGROUND:0,
+	SLOWBACKA:1,
 	FASTBACK:2,
 	FEATURES:3,
 	RIVERS:4,
 	REFERENCE:5,
 	EMPIRE:6,
 	FOREGROUND:7,
-	HUD:8,
+	HERO:8,
+	HUD:9,
 }
 
 /** @struct */
