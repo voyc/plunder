@@ -24,9 +24,12 @@ voyc.Hero = function() {
 		ptStep:[],
 		coStep:[]
 	}
-	this.speedBase = voyc.speed.WALK;
-	this.speedBest = this.speedBase;
-	this.speedNow = 200;
+
+	this.speed = {
+		base:voyc.speed.WALK,
+		best:voyc.speed.WALK,
+		now:voyc.speed.WALK
+	}
 }
 
 voyc.Hero.prototype.setLocation = function(co) {
@@ -53,27 +56,38 @@ voyc.Hero.prototype.createDestination = function(pt, isKeyboard) {
 	this.dest.moving = true;
 	this.dest.isKeyboard = isKeyboard || false;
 	this.dest.starttime = voyc.plunder.previousTimestamp;
+	this.dest.prevtime = voyc.plunder.previousTimestamp;
 	this.dest.ptStart = this.pt;
 	this.dest.angle = voyc.Geo.calcAngle(this.dest.ptStart, this.dest.ptEnd);
 	this.dest.coStart = this.co;
 	this.dest.coEnd = voyc.plunder.world.projection.invert(this.dest.ptEnd);
 	var rads = voyc.Geo.distance(this.dest.coStart,this.dest.coEnd);
 	this.dest.distance = rads * voyc.plunder.world.radiusKm;
+	this.dest.t = 0;
 }
 
 voyc.Hero.prototype.stepDestination = function(speed, timestamp) {
-	this.dest.stepDistance = speed * ((timestamp - this.dest.starttime) / 1000);
+	this.dest.stepDistance = speed * ((timestamp - this.dest.prevtime) / 1000);
+	this.dest.prevtime = timestamp;
 	var t = this.dest.stepDistance / this.dest.distance;
-	if (t >= 1) {
+	this.dest.t += t;
+	if (this.dest.t >= 1) {
 		this.dest.moving = false;
-		t = 1;
+		this.dest.t = 1;
 	}
-	this.dest.coStep = voyc.Geo.interpolate(this.dest.coStart, this.dest.coEnd, t);
+	this.dest.coStep = voyc.Geo.interpolate(this.dest.coStart, this.dest.coEnd, this.dest.t);
 	this.dest.ptStep = voyc.plunder.world.projection.project(this.dest.coStep);
 
 	this.ptPrev = this.pt;
 	this.pt = this.dest.ptStep;
 	this.co = this.dest.coStep;
+}
+
+voyc.Hero.prototype.updateDestination = function() {
+	if (this.dest.moving) {
+		this.dest.ptStart = voyc.plunder.world.projection.project(this.dest.coStart);
+		this.dest.ptEnd = voyc.plunder.world.projection.project(this.dest.coEnd);
+	}
 }
 
 voyc.Hero.prototype.stop = function() {
@@ -91,12 +105,20 @@ voyc.Hero.prototype.move = function (keyed, timestamp) {
 	}
 
 	if (this.isMoving()) {
-		this.stepDestination(this.speedNow, timestamp);
+		this.stepDestination(this.speed.now, timestamp);
+		if (this.isMarginal()) {
+			voyc.plunder.world.moveToCoord(this.co);
+		}
 	}
 	
 	this.moved = this.isMoving();
 }
 	
+voyc.Hero.prototype.isMarginal = function () {
+	return !(voyc.plunder.world.marginRect.l < this.pt[0] && this.pt[0] < voyc.plunder.world.marginRect.r
+		&& voyc.plunder.world.marginRect.t < this.pt[1] && this.pt[1] < voyc.plunder.world.marginRect.b);
+}
+
 voyc.Hero.prototype.draw = function () {
 	// if hero is moving, increment the frame number
 	if (this.isMoving()) {
@@ -159,22 +181,20 @@ voyc.Hero.prototype.showCheat = function (boo) {
 			this.crosshair.width, // source width
 			this.crosshair.height, // source height
 
-			voyc.plunder.world.w/2, // target x     // draw at 0,0 minus the offset, translate has positioned x,y at 0,0
-			voyc.plunder.world.h/2, // target y
+			voyc.plunder.world.w/2 - (this.crosshair.width/2), // target x
+			voyc.plunder.world.h/2 - (this.crosshair.height/2), // target y
 			this.crosshair.width,   // target width
 			this.crosshair.height  // target height
 		)	;
 	}
 	else {
-			
 	}
-	
 }
 
 /** @enum */
 voyc.speed = {
-	WALK:200, // KM per decade (kmpd)
-	RUN:400,
+	WALK:400, // KM per decade (kmpd)
+	RUN:800,
 	SWIM:800,
 	FLY:3000,
 };

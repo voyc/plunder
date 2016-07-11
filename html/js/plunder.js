@@ -31,8 +31,11 @@ voyc.Plunder = function() {
 	this.score = 0;
 
 	this.option = {
-		startYear: -3500,
 		timeStepPct: .05,
+	}
+	this.gamestart = {
+		cohero: [80,20],
+		time: -3500
 	}
 	
 	this.timestamp = {
@@ -76,9 +79,9 @@ voyc.Plunder.prototype.toString = function () {
 voyc.Plunder.prototype.load = function () {
 	log&&console.log(voyc.timer()+'windows load event');
 
-	this.time.begin = this.option.startYear;
+	this.time.begin = this.gamestart.time;
 	this.time.end = (new Date().getFullYear());
-	this.time.now = this.option.startYear;
+	this.time.now = this.gamestart.time;
 	this.time.step = Math.round((this.time.end - this.time.begin) * this.option.timeStepPct);
 
 	var self = this;
@@ -176,7 +179,7 @@ voyc.Plunder.prototype.load = function () {
 	}
 
 	this.hero = new voyc.Hero();
-	this.hero.setLocation([80,20]);
+	this.hero.setLocation(this.gamestart.cohero);
 	this.hero.setSprite(this.sprites.hero);
 	this.hero.ctx = this.world.getLayer(voyc.layer.HERO).ctx;
 
@@ -209,10 +212,12 @@ voyc.Plunder.prototype.saveGame = function() {
 }
 voyc.Plunder.prototype.restoreGame = function() {
 	var sgame = this.savedGame;
-	this.world.co = sgame.worldco;
-	this.hero.co  = sgame.heroco ;
-	this.time.now = sgame.time   ;
-	this.score    = sgame.score  ;
+	//this.world.co = sgame.worldco;
+	//this.hero.co  = sgame.heroco ;
+	//this.time.now = sgame.time   ;
+	//this.score    = sgame.score  ;
+
+	this.hero.co  = this.world.co ;
 }
 
 voyc.Plunder.prototype.cheat = function(boo) {
@@ -320,8 +325,14 @@ voyc.Plunder.prototype.render = function (timestamp) {
 	}
 
 	// update
-	var keyed = this.hud.checkKeyboard();
-	this.hero.move(keyed, timestamp);
+	if (!this.getOption(voyc.option.CHEAT)) {
+		var keyed = this.hud.checkKeyboard();
+		this.hero.move(keyed, timestamp);
+	}
+
+	if (this.world.moved) {
+		this.hero.updateDestination();
+	}
 
 	// draw world		
 	if (this.world.moved || this.time.moved) {
@@ -348,39 +359,26 @@ voyc.Plunder.prototype.render = function (timestamp) {
 		this.hero.draw();
 	}
 
+	if ((this.getOption(voyc.option.CHEAT) && !this.world.dragging && !this.world.zooming)
+			|| (!this.getOption(voyc.option.CHEAT) && (this.hero.moved))) {
+		this.hitTestFeatures();
+	}
+
+	if ((this.time.moved || this.hero.moved) && !this.getOption(voyc.option.CHEAT)) {
+		this.hitTestTreasure();
+	}
+
+	this.hero.speed.now = (this.hero.moved) ? this.hero.speed.best : 0;
+	this.hud.setSpeed(this.hero.speed.now);
+	//console.log('set speed: ' + this.hero.speed.now);
+
+	this.drawEffects(ctx);
+	
 	this.world.moved = false;
 	this.time.moved = false;
 	this.hero.moved = false;
 	this.previousTimestamp = timestamp;
 	return;
-
-	
-	// update
-	var keyed = this.hud.checkKeyboard();
-	var heroMoved = this.hero.move(delta, timestamp, keyed);
-
-	// draw background
-	if (this.world.moved) {
-		this.world.draw();
-	}
-
-	// draw foreground
-	var ctx = this.world.getLayer(voyc.layer.FOREGROUND).ctx;
-    ctx.clearRect(0, 0, voyc.plunder.world.w, voyc.plunder.world.h);
-	this.drawTreasure(ctx);
-	this.drawEmpire(ctx);
-	this.hero.draw(ctx);
-
-	if (heroMoved) {
-		this.hitTest();
-		this.whereami();
-		this.hero.speedNow = this.hero.speedBest;
-	}
-	else {
-		this.hero.speedNow = 0;
-	}
-	this.hud.setSpeed(this.hero.speedNow);
-	this.drawEffects(ctx);
 }
 
 voyc.Plunder.prototype.calcTime = function (timestamp) {
@@ -428,7 +426,7 @@ voyc.Plunder.prototype.timeForward = function() {
 	this.setTime(time);
 	this.time.sliding = true;
 }
-voyc.Plunder.prototype.timeBackward = function(value) {
+voyc.Plunder.prototype.timeBackward = function() {
 	function range(x,min,max) {
 		return Math.round(Math.min(max, Math.max(min, x)));
 	}
@@ -562,96 +560,49 @@ voyc.Plunder.prototype.drawRiversCanvasAnimated = function (ctx) {
 }
 */
 
-// in what polygons is the hero
-voyc.Plunder.prototype.whereami = function () {
-	var co = this.hero.co;
-	var geoco = {coordinates:co};
-	var whereami = '';
-	var speed = this.hero.speedBase;
-
-	// features by name
-	var featurefactors = {
-		'deserts': {speedfactor: .22},
-		//'lowmountains': {speedfactor: .18},
-		//'mediummountains': {speedfactor: .24},
-		'highmountains': {speedfactor: .30},
-		//'plateaux': {speedfactor: 0},
-		//'plains': {speedfactor: 0},
-		//'swamps': {speedfactor: .15},
-		//'tundras': {speedfactor: .05},
-		//'foothills': {speedfactor: .07},
-		//'valleys': {speedfactor: .02},
-	};
-
-	//var featurenames = [
-	//	'deserts',
-	//	//'lowmountains',
-	//	'highmountains',
-	//	//'mediummountains',
-	//	//'plateaux',
-	//	//'plains',
-	//	//'swamps',
-	//	//'tundras',
-	//	//'foothills',
-	//	//'valleys',
-	//];
-	//for (var n=0; n<featurenames.length; n++) {
-//	for (var ff in featurefactors) {
-//		var features = voyc.data[ff].features;
-//		for (var i=0; i<features.length; i++) {
-//			if (gju.pointInMultiPolygon(geoco, features[i].geometry)) {
-//				if (whereami.length) {
-//					whereami += '<br/>';
-//				}
-//				whereami += features[i].properties.name;
-//				speed -= (speed * featurefactors[ff].speedfactor);
-//			}
-//		}
-//	}
-
-	var presentday = '';
-//	var features = voyc.data.countries.geometries;
-//	for (var i=0; i<features.length; i++) {
-//		if (gju.pointInMultiPolygon(geoco, features[i].geometry)) {
-//			presentday = features[i].properties.name;
-//			break;
-//		}
-//	}
-
-	this.hero.speedBest = speed;
-	this.hud.setWhereami(co, whereami, presentday);
-}
-
-// is hero touching a treasure
-voyc.Plunder.prototype.hitTest = function () {
-	var t = {};
-	for (var key in this.treasure) {
-		t = this.treasure[key];
-		if (t['q'] && !t['cap']) {
-			var boo = this.isCollision(t);
-			if (boo) {
-				log&&console.log('collision');
-				this.onTreasureCaptured(t);
-				break;
-			}
-		}
+// on hit, set whereami string and speed
+voyc.Plunder.prototype.hitTestFeatures = function () {
+	var hitString = '';
+	var speed = this.hero.speed.base;
+	this.world.iterateeHitTest.name = '';
+	this.world.iterateeHitTest.targetCoord = 
+		(this.getOption(voyc.option.CHEAT)) ? this.world.co : this.hero.co;
+	this.world.iterateeHitTest.suffix = ' Desert';
+	this.world.iterator.iterateCollection(window['voyc']['data']['deserts'], this.world.iterateeHitTest);
+	if (this.world.iterateeHitTest.name) {
+		hitString += this.world.iterateeHitTest.name + '<br/>';
+		speed *= voyc.SpeedFactor.deserts;
 	}
+
+	this.world.iterateeHitTest.name = '';
+	this.world.iterateeHitTest.suffix = '';
+	this.world.iterator.iterateCollection(window['voyc']['data']['highmountains'], this.world.iterateeHitTest);
+	if (this.world.iterateeHitTest.name) {
+		hitString += this.world.iterateeHitTest.name + '<br/>';
+		speed *= voyc.SpeedFactor.highmountains;
+	}
+
+	this.hud.setWhereami(this.world.iterateeHitTest.targetCoord, hitString, '');
+	this.hero.speed.best = speed;
 }
 
-voyc.Plunder.prototype.isCollision = function (treasure) {
-	var rect = {x:this.hero.pt[0], y:this.hero.pt[1], w:this.hero.sprite.w, h:this.hero.sprite.h};
-	return this.isPtInRect(treasure, rect);
-}
-
-voyc.Plunder.prototype.isPtInRect = function (pt, rect) {
-	return ((rect.x < pt.x) && (pt.x < rect.x + rect.w)
-		 && (rect.y < pt.y) && (pt.y < rect.y + rect.h));
+voyc.Plunder.prototype.hitTestTreasure = function () {
+	this.world.iterateeHitTestTreasure.targetRect = {
+		l:this.hero.pt[0] - this.hero.sprite.w,
+		t:this.hero.pt[1] - this.hero.sprite.h,
+		r:this.hero.pt[0] + this.hero.sprite.w,
+		b:this.hero.pt[1] + this.hero.sprite.h
+	};
+	this.world.iterator.iterateCollection(window['voyc']['data']['treasure'], this.world.iterateeHitTestTreasure);
+	if (this.world.iterateeHitTestTreasure.geom) {
+		this.onTreasureCaptured(this.world.iterateeHitTestTreasure.geom);
+	}
 }
 
 voyc.Plunder.prototype.onTreasureCaptured = function (t) {
 	t['cap'] = 1;
 	this.score += t['score'];
-	this.explode(t[x], t['y']);
+	this.explode(t['pt'][0], t['pt'][1]);
 	this.hud.setScore(this.score, t['name'], t['msg']);
 }
 
@@ -675,45 +626,6 @@ voyc.Plunder.prototype.drawEffects = function (ctx) {
 voyc.Plunder.prototype.drawTreasure = function (ctx) {
 	this.world.iterator.iterateCollection(window['voyc']['data']['treasure'], this.world.iterateeTreasure);
 	return;
-	
-	for (var key in this.treasure) {
-		var t = this.treasure[key];
-		if (!t['cap']) {
-			t['q'] = false;
-			var pt = this.world.projection.project([t['lng'], t['lat']]);
-			if (pt 
-					&& (pt[0] > 0) && (pt[0]<this.world.w) && (pt[1] > 0) && (pt[1]<this.world.h)
-					&& (t['b'] < this.time.now) && (t['e'] > this.time.now)
-				) {
-				t['q'] = true;  // is qualified
-				t['x'] = pt[0];
-				t['y'] = pt[1];
-				
-				t['image'] = this.asset.get('treasure');
-				t['w'] = t.image.width;
-				t['h'] = t.image.height;
-				
-				ctx.drawImage(
-					t['image'], // image
-
-					0, // source x
-					0, // source y
-					t['w'], // source width
-					t['h'], // source height
-
-					t['x'] - (t['w']/2),  // target x
-					t['y'] - (t['h']/2), // target y
-					t['w'],   // target width
-					t['h']    // target height
-				);
-			}
-			else {
-				t['q'] = false;
-			}
-//			console.log([t.q,t.lng,t.lat,t.x,t.y, t.b, t.e, t.name]);
-		}
-	}
-	var i = 2;
 };
 
 voyc.Plunder.prototype.drawEmpire = function (ctx) {
@@ -736,7 +648,7 @@ voyc.Plunder.prototype.alert = function (s) {
 	}
 }
 
-voyc.Plunder.prototype.resize = function (s) {
+voyc.Plunder.prototype.resize = function (evt) {
 	this.world.resize(document.body.clientWidth, document.body.clientHeight);
 	this.world.moved = true;
 	if (this.getOption(voyc.option.CHEAT)) {
@@ -745,7 +657,7 @@ voyc.Plunder.prototype.resize = function (s) {
 }
 
 window.addEventListener('resize', function(evt) {
-	voyc.plunder.resize();
+	voyc.plunder.resize(evt);
 }, false);
 
 if (log) {
@@ -837,3 +749,16 @@ voyc.Event = {
 	FileLoaded:1,
 }
 
+/** @enum */
+voyc.SpeedFactor = {
+	deserts: .22,
+	highmountains: .30,
+	mediummountains: .24,
+	lowmountains: .18,
+	plateaux: 0,
+	plains: 0,
+	swamps: .15,
+	tundras: .05,
+	foothills: .07,
+	valleys: .02,
+};

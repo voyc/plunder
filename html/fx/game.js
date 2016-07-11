@@ -29,6 +29,15 @@ voyc.Game.prototype.stop = function () {
 	this.running = false;
 }
 
+voyc.Game.prototype.toggle = function () {
+	if (this.running) {
+		this.stop();
+	}
+	else {
+		this.start();
+	}
+}
+
 voyc.Game.prototype.step = function (timestamp) {
 	if (log) {
 		if (!this.starttime) this.starttime = timestamp;

@@ -6,7 +6,9 @@ voyc.Key = {
 	DOWN: 40,
 	ESC: 27,
 	RETURN: 13,
-	C: 67
+	C: 67,
+	P: 80,
+	T: 84
 }
 
 /** @constructor */

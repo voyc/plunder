@@ -17,10 +17,10 @@
 	Variable naming conventions.
 		pt is an [x,y] point in pixels
 		co is a [lng,lat] coordinate in degrees
+		ro is a [λ,φ,γ] set of angles in degrees
 */
 voyc.OrthographicProjection = function() {
 	// rotate
-	this.co = []; // lng,lat in degrees
 	this.δλ = 0;  // delta lambda, horizontal angle in radians
 	this.δφ = 0;  // delta phi, vertical angle in radians
 	this.δγ = 0;  // delta gamma, elevation
@@ -50,14 +50,15 @@ voyc.OrthographicProjection = function() {
 	to the specified angles λ, φ and γ (yaw, pitch and roll) in degrees :
 		λ = lambda = yaw = negative longitude = spin on the x axis
 		φ = phi    = pitch = negative latitude = spin on the y axis
-		γ = gamma  = roll = spin on the z axis, defaults to zero
-	https://www.jasondavies.com/maps/rotate/
+		γ = gamma  = roll = spin on the z axis, optional
+	See https://www.jasondavies.com/maps/rotate/
 */
-voyc.OrthographicProjection.prototype.rotate = function(co) {
-	this.co = co;
-	this.δλ = co[0] % 360 * voyc.Geo.to_radians;   // delta lambda (horizontal)
-	this.δφ = co[1] % 360 * voyc.Geo.to_radians;   // delta phi (vertical)
-	this.δγ = co.length > 2 ? co[2] % 360 * voyc.Geo.to_radians : 0;  // delta gamma (z-axis)
+voyc.OrthographicProjection.prototype.rotate = function(ro) {
+	this.δλ = ro[0] % 360 * voyc.Geo.to_radians;   // delta lambda (horizontal)
+	this.δφ = ro[1] % 360 * voyc.Geo.to_radians;   // delta phi (vertical)
+	if (ro.length > 2) {
+		this.δγ = ro[2] % 360 * voyc.Geo.to_radians;  // delta gamma (z-axis)
+	}
 
     this.cosδφ = Math.cos(this.δφ);
 	this.sinδφ = Math.sin(this.δφ);
@@ -77,10 +78,10 @@ voyc.OrthographicProjection.prototype.scale = function(k) {
 /**
 	center([lng,lat])
 	Sets the projection’s center to the specified coordinate, 
-	a three-element array of longitude, latitude, gamma in degrees.
+	a three-element array of longitude in degrees.
 */
 voyc.OrthographicProjection.prototype.center = function(co) {
-	this.rotate([0-co[0], 0-co[1], 0-co[2]]);
+	this.rotate([0-co[0], 0-co[1]]);
 }
 
 /**
@@ -88,10 +89,6 @@ voyc.OrthographicProjection.prototype.center = function(co) {
 	Sets the projection’s translation offset 
 	to the specified two-element array [x, y] in pixels.
 	This is normally the center point of the viewport window.
-	
-	Note.
-		rotate() sets the center of the globe in lng,lat coordinates
-		translate() sets the center of the viewport window in x,y pixels
 */
 voyc.OrthographicProjection.prototype.translate = function(pt) {
 	this.pt = pt;

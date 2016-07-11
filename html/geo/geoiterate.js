@@ -254,6 +254,36 @@ voyc.GeoIterate.iterateePolygonClipping.prototype = {
 	}
 }
 
+/**
+	init
+	@constructor
+*/
+voyc.GeoIterate.iterateeInit = function() {
+	this.bbox = {};
+}
+voyc.GeoIterate.iterateeInit.prototype = {
+	point: function(pt) {
+		if (pt[0] < this.bbox.w) { this.bbox.w = pt[0]}; 
+		if (pt[0] > this.bbox.e) { this.bbox.e = pt[0]}; 
+		if (pt[1] > this.bbox.n) { this.bbox.n = pt[1]}; 
+		if (pt[1] < this.bbox.s) { this.bbox.s = pt[1]};
+	},
+	polygonStart: function(poly) {return true;},
+	polygonEnd: function(poly) {}, 
+	geometryStart: function(geometry) { 
+		this.bbox = {w:180,n:-90,e:-180,s:90};
+		return true; 
+	},
+	geometryEnd: function(geometry) {
+		geometry.q = true;
+		geometry.v = false;
+		geometry.bbox = this.bbox;
+		//console.log(this.bbox, geometry.name);
+	},
+	collectionStart: function(collection) {},
+	collectionEnd: function(collection) {},
+}
+
 /** @constructor */
 voyc.GeoIterate.iterateeDrawPerGeometry = function() {
 	this.colorstack = [];
@@ -326,7 +356,7 @@ voyc.GeoIterate.iterateePoint = function() {
 	this.projection = /**@type voyc.OrthographicProjection*/({});
 	this.ctx = /**@type CanvasRenderingContext2D */({});
 	this.draw = {
-		image:{},
+		image:null,
 		w:0,
 		h:0
 	};
@@ -335,7 +365,7 @@ voyc.GeoIterate.iterateePoint = function() {
 voyc.GeoIterate.iterateePoint.prototype = {
 	point: function(co) {
 		var pt = this.projection.project(co);
-		if (pt && (pt[0] > 0) && (pt[0]<this.ctx.canvas.width) && (pt[1] > 0) && (pt[1]<this.ctx.canvas.height)){
+		if (pt && (pt[0] > 0) && (pt[0]<this.ctx.canvas.width) && (pt[1] > 0) && (pt[1]<this.ctx.canvas.height)) {
 			this.pt = pt;
 		}
 		else {
@@ -343,7 +373,7 @@ voyc.GeoIterate.iterateePoint.prototype = {
 		}
 	},
 	geometryStart: function(geometry) {
-		geometry['q'] = (geometry['b'] < voyc.plunder.time.now) && (voyc.plunder.time.now < geometry['e']);
+		geometry['q'] = (geometry['b'] < voyc.plunder.time.now) && (voyc.plunder.time.now < geometry['e']) && !geometry['cap'];
 		this.pt = false;
 		return geometry['q'];
 	},
@@ -426,16 +456,18 @@ voyc.GeoIterate.iterateeCounter.prototype = {
 /** @constructor */
 voyc.GeoIterate.iterateeHitTest = function() {
 	this.projection = /**@type voyc.OrthographicProjection*/({});
-	this.targetPoint = [];
 	this.targetCoord = [];
+	this.suffix = '';
 	this.hit = false;
+	this.numTests = 0;
 }	
 voyc.GeoIterate.iterateeHitTest.prototype = {
 	point: function(pt) {},
 	lineStart: function(pt,geometry) {},
 	lineEnd: function(pt,geometry) {},
 	polygonStart: function(polygon) {
-		var hit = pointInPolygon(this.targetCoord, polygon);
+		var hit = this.pointInPolygon(this.targetCoord, polygon);
+		this.numTests++;
 		if (hit) {
 			this.hit = true;
 		}
@@ -444,17 +476,20 @@ voyc.GeoIterate.iterateeHitTest.prototype = {
 	polygonEnd: function(polygon) {},
 	geometryStart: function(geometry) {
 		this.hit = false;
-		return (geometry.q && geometry.v);
+		return (geometry.q && geometry.v && this.pointInBbox(this.targetCoord,geometry.bbox));
 	},
 	geometryEnd: function(geometry) {
 		if (this.hit) {
-			console.log('click in ' + geometry.name);
+			//console.log('click in ' + geometry.name + this.suffix);
+			this.name = geometry.name + this.suffix;
 		}
 	},
 	collectionStart: function(collection) {
-		this.targetCoord = this.projection.invert(this.targetPoint);
+		this.numTests = 0;
 	},
-	collectionEnd: function(collection) {},
+	collectionEnd: function(collection) {
+		//console.log('hittests: ' + this.numTests);
+	},
 
 	/**
 		Point in Polygon
@@ -463,7 +498,6 @@ voyc.GeoIterate.iterateeHitTest.prototype = {
 		subroutine called for hittest
 	*/
 	pointInPolygon: function(pt,poly) {
-		console.log('test');
 		var x = pt[0];
 		var y = pt[1];
 		var inside = false
@@ -473,10 +507,48 @@ voyc.GeoIterate.iterateeHitTest.prototype = {
 			}
 		}
 		return inside;
+	},
+	pointInBbox: function(pt,bbox) {
+		return((pt[0] > bbox.w)
+			&& (pt[0] < bbox.e)
+			&& (pt[1] < bbox.n)
+			&& (pt[1] > bbox.s));
 	}
 }
 
 
+/** @constructor */
+voyc.GeoIterate.iterateeHitTestPoint = function() {
+	this.targetRect = {l:0,t:0,r:0,b:0};
+	this.hit = false;
+	this.numTests = 0;
+}	
+voyc.GeoIterate.iterateeHitTestPoint.prototype = {
+	point: function(co) {
+		var pt = this.projection.project(co);
+		if (this.targetRect.l < pt[0] && pt[0] < this.targetRect.r
+				&& this.targetRect.t < pt[1] && pt[1] < this.targetRect.b) {
+			this.hit = true;
+		}
+	},
+	geometryStart: function(geometry) {
+		this.hit = false;
+		return (geometry['q'] && geometry['v'] && !geometry['cap']);
+	},
+	geometryEnd: function(geometry) {
+		if (this.hit) {
+			//console.log('click in ' + geometry.name + this.suffix);
+			this.geom = geometry;
+		}
+	},
+	collectionStart: function(collection) {
+		this.numTests = 0;
+		this.geom = false;
+	},
+	collectionEnd: function(collection) {
+		//console.log('hittests: ' + this.numTests);
+	},
+}
 
 /**
 	Alternative ctx objects

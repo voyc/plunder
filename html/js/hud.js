@@ -77,7 +77,7 @@ voyc.Hud.prototype.attach = function() {
 		}
 	}, false);
 	document.getElementById('menudone').addEventListener('click', function(evt) {
-		console.log('menu closed');
+		//console.log('menu closed');
 		evt.stopPropagation();
 		self.hide(document.getElementById('menu'));
 		self.show(document.getElementById('menubtn'));
@@ -162,6 +162,14 @@ voyc.Hud.prototype.attach = function() {
 			voyc.plunder.setOption(voyc.option.CHEAT, !voyc.plunder.getOption(voyc.option.CHEAT));
 			return;
 		}
+		if (evt.keyCode == voyc.Key.P && evt.altKey) {
+			voyc.plunder.game.toggle();
+			return;
+		}
+		if (evt.keyCode == voyc.Key.T && evt.altKey) {
+			voyc.plunder.render(voyc.plunder.previousTimestamp + 100);
+			return;
+		}
 		if (voyc.plunder.getOption(voyc.option.CHEAT)) {
 			if (evt.ctrlKey) {
 				switch (evt.keyCode) {
@@ -231,12 +239,9 @@ voyc.Hud.prototype.checkKeyboard = function () {
 	var up    = (keybd.isDown(voyc.Key.UP)) ? -1 : 0;
 	var down  = (keybd.isDown(voyc.Key.DOWN)) ? 1 : 0;
 	var arbitrary = 20; // pixels
-	var keyed = left || right || up || down;
+	var keyed = (left + right) || (up + down);
 
-	if ((up || down) && keybd.isShift()) {
-		voyc.plunder.world.zoom(up || down); // plus or minus 1
-	}
-	else if (keyed) {
+	if (keyed) {
 		var pt = [];
 		pt[0] = voyc.plunder.hero.pt[0] + ((left + right) * arbitrary);
 		pt[1] = voyc.plunder.hero.pt[1] + ((up + down) * arbitrary);
@@ -349,8 +354,8 @@ voyc.Hud.prototype.onMap = function(e) {
 			|| (e.target.parentElement.parentElement.id == 'menu')
 			|| (e.target.parentElement.parentElement.parentElement.id == 'menu')
 		))
-		|| (e.target.id == 'scorebox')
-		|| (e.target.parentElement.id == 'scorebox')
+	//	|| (e.target.id == 'scorebox')
+	//	|| (e.target.parentElement.id == 'scorebox')
 		|| (e.target.id == 'huduser')
 		|| (e.target.parentElement.id == 'huduser')
 	));
@@ -370,26 +375,31 @@ voyc.Hud.prototype.getMousePos = function(e) {
 	
 // Event Handler for mousedown, touchstart on a draggable element.
 voyc.Hud.prototype.ongrab = function(e) {
-	if (voyc.plunder.getOption(voyc.option.CHEAT) && this.onMap(e)) {
-		console.log('grabbed');
-		e.preventDefault();
-		e.stopPropagation();
+	if (this.onMap(e)) {
+		if (voyc.plunder.getOption(voyc.option.CHEAT) && this.onMap(e)) {
+			//console.log('grabbed');
+			e.preventDefault();
+			e.stopPropagation();
 
-		this.dragging = false;
-		this.dragOrigin = this.getMousePos(e);
-		this.dragCenter = voyc.plunder.world.getCenterPoint();
-		
-		this.elem.addEventListener('touchmove', voyc.Hud.ddrag, false);
-		this.elem.addEventListener('mousemove', voyc.Hud.ddrag, false);
-		this.elem.addEventListener('touchend' , voyc.Hud.ddrop, false);
-		this.elem.addEventListener('mouseup'  , voyc.Hud.ddrop, false);
+			this.dragging = false;
+			this.dragOrigin = this.getMousePos(e);
+			this.dragCenter = voyc.plunder.world.getCenterPoint();
+			
+			this.elem.addEventListener('touchmove', voyc.Hud.ddrag, false);
+			this.elem.addEventListener('mousemove', voyc.Hud.ddrag, false);
+			this.elem.addEventListener('touchend' , voyc.Hud.ddrop, false);
+			this.elem.addEventListener('mouseup'  , voyc.Hud.ddrop, false);
+		}
+		else {
+			this.ontap(this.getMousePos(e));
+		}
 	}
 }
 
 // Event Handler for mousemove, touchmove while dragging
 voyc.Hud.prototype.ondrag = function(e) {
 	if (this.dragOrigin) {
-		console.log('dragged');
+		//console.log('dragged');
 		e.preventDefault();
 		e.stopPropagation();
 		pos = this.getMousePos(e);
@@ -402,7 +412,7 @@ voyc.Hud.prototype.ondrag = function(e) {
 
 // Event Handler for mouseup, touchend, and touchcancel on a dragging element.
 voyc.Hud.prototype.ondrop = function(e) {
-	console.log('dropped');
+	//console.log('dropped');
 	e.preventDefault();
 	e.stopPropagation();
 
@@ -422,7 +432,7 @@ voyc.Hud.prototype.ondrop = function(e) {
 
 // Event Handler for tap or click
 voyc.Hud.prototype.ontap = function(pos) {
-	console.log('tapped');
+	//console.log('tapped');
 	if (event.target.id == 'menubtn') {
 		this.populateMenu();
 		this.hide(document.getElementById('menubtn'));
@@ -430,7 +440,7 @@ voyc.Hud.prototype.ontap = function(pos) {
 	}
 	else {
 		if (voyc.plunder.getOption(voyc.option.CHEAT)) {
-			voyc.plunder.world.setCenterPoint(pos);
+			voyc.plunder.world.moveToPoint(pos);
 			//voyc.plunder.hero.setLocation(voyc.plunder.world.co);
 		}
 		else {

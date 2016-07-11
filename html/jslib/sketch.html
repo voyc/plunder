@@ -1,0 +1,78 @@
+<html>
+<head>
+	<meta http-equiv='content-type' content='text/html; charset=UTF-8'/>
+	<title>sketch</title>
+	<meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1'>
+	<meta equiv='X-UA-Compatible' content='IE=8'> <!-- for ie8 drag-n-drop bug -->
+
+	<style>
+		#d3 {
+			width:50rem;
+			height:30rem;
+			color:blue;
+			border:1px solid black;
+			margin-bottom:2rem;
+		}
+		#canvas {
+			position:fixed;
+			color:orange;
+			text-align:center;
+			width:inherit;
+			height:inherit;
+		}
+		.fixed {
+			position:fixed;
+		}
+		[hidden] {
+			display:none;
+		}
+	</style>
+
+	<script>
+		/** @const */ var voyc = {};
+		var sketch3 = null;
+
+		onload = function() {
+			sketch3 = new voyc.Sketch(document.getElementById('canvas'));
+			sketch3.setOptions({
+				penColor:'fuchsia',
+				hasGrid:true,
+				gridColor:'black',
+			});
+			sketch3.draw();
+
+			document.getElementById('pen-btn').addEventListener('click', function() {
+			sketch3.setOptions({
+				penColor:'fuchsia',
+				brushSize:5
+			});
+			}, false);
+
+			document.getElementById('eraser-btn').addEventListener('click', function() {
+			sketch3.setOptions({
+				penColor:'yellow',
+				brushSize:12
+			});
+			}, false);
+
+			document.getElementById('clean-btn').addEventListener('click', function() {
+				sketch3.clear();
+			}, false);
+
+			document.getElementById('clear-btn').addEventListener('click', function() {
+				sketch3.clear();
+			}, false);
+		}
+	</script>
+	<script src='sketch.js'></script>
+</head>
+<body>
+	<div id="d3">
+		<canvas id='canvas'></canvas>
+	</div>
+	<input type='button' id='pen-btn' value='Pen'/>
+	<input type='button' id='eraser-btn' value='Eraser'/>
+	<input type='button' id='clean-btn' value='Clean'/>
+	<input type='button' id='clear-btn' value='Clear'/>
+</body>
+</html>
