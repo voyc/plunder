@@ -25,7 +25,7 @@ voyc.Plunder = function() {
 	this.hud = {};
 
 	this.loadnum = 2;
-	this.loadmax = 20;
+	this.loadmax = 26;
 	this.loaded = {};
 	this.options = {};
 	this.score = 0;
@@ -142,6 +142,20 @@ voyc.Plunder.prototype.load = function () {
 		'data/highmountains.js',
 		'data/worldtopo.js',
 		'data/empire.js',
+		'data/river1.js',
+		'data/river2.js',
+		'data/river3.js',
+		'data/river4.js',
+		'data/river5.js',
+		'data/river6.js',
+		//'data/foothills.js',
+		//'data/lowmountains.js',
+		//'data/mediummountains.js',
+		//'data/plains.js',
+		//'data/plateaux.js',
+		//'data/swamps.js',
+		//'data/tundras.js',
+		//'data/valleys.js',
 	];
 	this.scriptLoader = new voyc.ScriptLoader();
 	this.scriptLoader.load(scripts, function(isSuccess) { self.sync('scripts', isSuccess); });

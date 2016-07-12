@@ -78,23 +78,21 @@ voyc.GeoIterate.prototype.iterateGeometry = function(geometry, iteratee) {
 		case 'Polygon':
 			this.iteratePolygon(geometry['coordinates'],iteratee);
 			break;
-		case 'MultiLine':
+		case 'MultiLineString':
 			for (var line in geometry['coordinates']) {
 				this.iterateLine(geometry['coordinates'][line],iteratee);
 			}
 			break;
-		case 'Line':
+		case 'LineString':
 			this.iterateLine(geometry['coordinates'],iteratee);
 			break;
-		/*	
 		case 'MultiPoint':
-			for each point {
-				this.iteratePoint(pt);
+			//for each point {
+			//	iteratee.point(geometry['coordinates']);
+			//}
 			break;
-		*/
 		case 'Point':
 			iteratee.point(geometry['coordinates']);
-			//this.iteratePoint(geometry['coordinates'],iteratee);
 			break;
 	}
 	iteratee.geometryEnd(geometry);
@@ -341,13 +339,49 @@ voyc.GeoIterate.iterateeLine.prototype = {
 	geometryStart: function(geometry) {return true},
 	geometryEnd: function(geometry) {},
 	collectionStart: function(collection) {
-		this.ctx.strokeStyle = '#888';
-		this.ctx.strokeWidth = .5;
-		this.ctx.strokeOpacity = .5;
 		this.ctx.beginPath();
 	},
 	collectionEnd: function(collection) {
 		this.ctx.stroke();
+	},
+}
+
+/** @constructor */
+voyc.GeoIterate.iterateeLineSvg = function() {
+	this.projection = /**@type voyc.OrthographicProjection*/({});
+	this.pointCount = 0;
+	this.d = '';
+}
+voyc.GeoIterate.iterateeLineSvg.prototype = {
+	point: function(pt) {
+		var p = this.projection.project(pt);
+		if (p) {
+			if (!this.pointCount) {
+				this.d += 'M' + p[0] + ' ' + p[1] + ' ';
+			}
+			else {
+				this.d += 'L' + p[0] + ' ' + p[1] + ' ';
+			}
+			this.pointCount++;
+		}
+		else {
+			//console.log('invisible point');
+			this.pointCount = 0;
+		}
+	},
+	lineStart: function(line) {
+		this.pointCount = 0;
+		return true;
+	},
+	lineEnd: function(line) {},
+	polygonStart: function(polygon) {},
+	polygonEnd: function(polygon) {},
+	geometryStart: function(geometry) {return true},
+	geometryEnd: function(geometry) {},
+	collectionStart: function(collection) {
+		this.d = '';
+	},
+	collectionEnd: function(collection) {
 	},
 }
 

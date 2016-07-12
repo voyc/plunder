@@ -127,6 +127,9 @@ voyc.World.prototype.setup = function(elem, co, w, h) {
 	this.iterateeGrid = new voyc.GeoIterate.iterateeLine();
 	this.iterateeGrid.projection = this.projection;
 	this.iterateeGrid.ctx = this.getLayer(voyc.layer.REFERENCE).ctx;
+	this.iterateeGrid.ctx.strokeStyle = '#888';
+	this.iterateeGrid.ctx.strokeWidth = .5;
+	this.iterateeGrid.ctx.strokeOpacity = .5;
 
 	this.iterateeFeature = new voyc.GeoIterate.iterateePolygonClipping();
 	this.iterateeFeature.projection = this.projection;
@@ -139,6 +142,9 @@ voyc.World.prototype.setup = function(elem, co, w, h) {
 	this.iterateeHitTestTreasure.projection = this.projection;
 
 	this.iterateeInit = new voyc.GeoIterate.iterateeInit();
+
+	this.iterateeRiver = new voyc.GeoIterate.iterateeLineSvg();
+	this.iterateeRiver.projection = this.projection;
 }
 
 voyc.World.prototype.resize = function(w, h) {
@@ -194,7 +200,7 @@ voyc.World.prototype.setupData = function() {
 		'type': 'GeometryCollection',
 		'geometries': [
 			{
-				'type': "MultiLine", 
+				'type': "MultiLineString", 
 				'coordinates': voyc.Geo.graticule(),
 			}
 		]
@@ -316,7 +322,7 @@ voyc.World.prototype.createRiverPaths = function() {
 		pathStill.id = 'riverpathstill'+i;
 		pathStill.classList.add('river');
 		pathStill.classList.add('wid'+i);
-		pathStill['__data__'] = window['voyc']['data']['river'][i];
+	//	pathStill['__data__'] = window['voyc']['data']['river'][i];
 		svg.appendChild(pathStill);
         
 		var pathAnim = document.createElementNS("http://www.w3.org/2000/svg", 'path');
@@ -324,7 +330,7 @@ voyc.World.prototype.createRiverPaths = function() {
 		pathAnim.classList.add('river');
 		pathAnim.classList.add('ariver');
 		pathAnim.classList.add('wid'+i);
-		pathAnim['__data__'] = window['voyc']['data']['river'][i];
+	//	pathAnim['__data__'] = window['voyc']['data']['river'][i];
 		svg.appendChild(pathAnim);
 	}
 }
@@ -396,6 +402,8 @@ voyc.World.prototype.showHiRes = function(boo) {
 voyc.World.prototype.drawOceansAndLand = function() {
 	var ctx = this.getLayer(voyc.layer.FEATURES).ctx;
 	ctx.clearRect(0, 0, this.w, this.h);
+	
+	this.clearRivers();
 
 	ctx = this.getLayer(voyc.layer.FASTBACK).ctx;
 	ctx.clearRect(0, 0, this.w, this.h);
@@ -423,17 +431,22 @@ voyc.World.prototype.drawGrid = function() {
 	}
 }
 
-voyc.World.prototype.drawRivers = function() {
+voyc.World.prototype.clearRivers = function() {
+	for (var i=1; i<=6; i++) {
+		document.getElementById('riverpathstill'+i).removeAttribute('d');
+		document.getElementById('riverpathanim'+i).removeAttribute('d');
+	}
 }
 
-//voyc.World.prototype.draw = function() {
-//	this.drawFast();
-//	this.drawFeatures();
-//	return;
+voyc.World.prototype.drawRivers = function() {
+	for (var i=1; i<=6; i++) {
+		this.iterator.iterateCollection(window['voyc']['data']['river'][i], this.iterateeRiver);
+		document.getElementById('riverpathstill'+i).setAttribute('d', this.iterateeRiver.d);
+		document.getElementById('riverpathanim'+i).setAttribute('d', this.iterateeRiver.d);
+	}
 
-	//log&&console.log(voyc.timer()+'start draw');
-	//this.moved = false;
-	//var tmbegin = new Date();
+	//this.world.iterator.iterateCollection(window['voyc']['data']['river'][1], this.world.iterateeRiverAnim);
+}
 
 //	if (voyc.plunder.getOption(voyc.option.HIRES)) {
 //		var ctx = this.getLayer(voyc.layer.SLOWBACKA).ctx;
@@ -443,24 +456,12 @@ voyc.World.prototype.drawRivers = function() {
 //	}
 
 
-	//d3.selectAll('.river').attr('d', this.pathsvg);
-
-
 //	if (voyc.plunder.getOption(voyc.option.PRESENTDAY)) {
 //		ctx.strokeStyle = '#f88';
 //		ctx.beginPath();
 //		this.iterator.iterateCollection(this.data.countries, this.iterateeCountries);
 //		ctx.stroke();
 //	}
-
-//	ctx = this.getLayer(voyc.layer.FEATURES).ctx;
-//	this.drawFeatures(ctx);
-
-//	log&&console.log(voyc.timer()+'draw complete');
-//	var tmend = new Date();
-//	var elapsed = tmend.getTime() - tmbegin.getTime();
-//	log&&console.log('draw time: ' + elapsed + ' ms')
-//}
 
 voyc.World.prototype.drawFeatures = function() {
 	var ctx = this.getLayer(voyc.layer.FEATURES).ctx;
