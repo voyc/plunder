@@ -114,8 +114,9 @@ voyc.GeoIterate.prototype.iteratePolygon = function(polygon, iteratee) {
 voyc.GeoIterate.prototype.iterateLine = function(line, iteratee) {
 	var boo = iteratee.lineStart(line);
 	if (boo) {
-		for (var point in line) {
-			iteratee.point(line[point]);
+		var n = line.length;
+		for (var i=0; i<n; i++) {
+			iteratee.point(line[i]);
 		}
 		iteratee.lineEnd(line);
 	}

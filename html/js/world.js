@@ -46,6 +46,8 @@ voyc.World = function() {
 	this.iterateeFeature = {};
 	this.iterateeHitTest = {};
 	this.iterateeInit = {};
+	
+	this.riverpass = 0;
 }
 
 /** @const */
@@ -86,7 +88,9 @@ voyc.World.prototype.setup = function(elem, co, w, h) {
 	this.layer[voyc.layer.FASTBACK] = this.createLayer(false, 'fastback');
 	this.layer[voyc.layer.FEATURES] = this.createLayer(false, 'features');
 	this.layer[voyc.layer.SLOWBACKA] = this.createLayer(true, 'slowbacka');
-	this.layer[voyc.layer.RIVERS] = this.createLayerSVG();
+	this.layer[voyc.layer.RIVER0] = this.createLayer(true, 'river0');
+	this.layer[voyc.layer.RIVER1] = this.createLayer(true, 'river1');
+	this.layer[voyc.layer.RIVER2] = this.createLayer(true, 'river2');
 	this.layer[voyc.layer.REFERENCE] = this.createLayer(false, 'reference');
 	this.layer[voyc.layer.EMPIRE] = this.createLayer(false, 'empire');
 	this.layer[voyc.layer.FOREGROUND] = this.createLayer(false, 'foreground');
@@ -128,7 +132,7 @@ voyc.World.prototype.setup = function(elem, co, w, h) {
 	this.iterateeGrid.projection = this.projection;
 	this.iterateeGrid.ctx = this.getLayer(voyc.layer.REFERENCE).ctx;
 	this.iterateeGrid.ctx.strokeStyle = '#888';
-	this.iterateeGrid.ctx.strokeWidth = .5;
+	this.iterateeGrid.ctx.lineWidth = .5;
 	this.iterateeGrid.ctx.strokeOpacity = .5;
 
 	this.iterateeFeature = new voyc.GeoIterate.iterateePolygonClipping();
@@ -143,8 +147,63 @@ voyc.World.prototype.setup = function(elem, co, w, h) {
 
 	this.iterateeInit = new voyc.GeoIterate.iterateeInit();
 
-	this.iterateeRiver = new voyc.GeoIterate.iterateeLineSvg();
+	this.iterateeRiver = new voyc.GeoIterate.iterateeLine();
 	this.iterateeRiver.projection = this.projection;
+	this.iterateeRiver.ctx = this.getLayer(voyc.layer.FEATURES).ctx;
+	this.iterateeRiver.point = function(pt) {
+		var p = this.projection.project(pt);
+		if (p) {
+			if (!this.pointCount) {
+				this.ctx.moveTo(p[0],p[1]);
+			}
+			else {
+				this.ctx.lineTo(p[0],p[1]);
+			}
+			this.pointCount++;
+			this.pt.push(p);
+		}
+		else {
+			//console.log('invisible point');
+			this.pointCount = 0;
+		}
+	}
+	this.iterateeRiver.geometryStart = function(geometry) {
+		this.pt = [];
+		return true
+	}
+	this.iterateeRiver.geometryEnd = function(geometry) {
+		geometry.pt = this.pt;
+	}
+
+	this.iterateeRiverAnim = new voyc.GeoIterate.iterateeLine();
+	this.iterateeRiverAnim.projection = this.projection;
+	this.iterateeRiverAnim.nth = 5;
+	this.iterateeRiverAnim.start = 0;
+	this.iterateeRiverAnim.geometryStart = function(geom) {
+		for (var i=0; i<geom.pt.length; i++) {
+			if (!((i + this.start) % this.nth)) {
+				this.ctx.beginPath();
+				this.ctx.arc(geom.pt[i][0], geom.pt[i][1], this.radius, 0, 2*Math.PI);
+				this.ctx.fill();
+			}
+		}
+		return false;
+	}
+	this.iterateeRiverAnim.collectionEnd = function(collection) {
+		this.start--;
+		if (this.start <= 0) {
+			this.start = this.nth;
+		}
+		collection.start = this.start;
+	}
+	this.iterateeRiverAnim.collectionStart = function(collection) {
+		this.ctx.fillStyle = '#00F';
+		this.ctx.lineWidth = 0;
+		if (!collection.start) {
+			collection.start = this.nth;
+		}
+		this.start = collection.start;
+	}
 }
 
 voyc.World.prototype.resize = function(w, h) {
@@ -187,9 +246,6 @@ voyc.World.prototype.resize = function(w, h) {
 }
 
 voyc.World.prototype.setupData = function() {
-	// setup the river svg layer
-	this.createRiverPaths();
-
 	this.data = [];
 	this.data.countries = topojson.object(worldtopo, worldtopo['objects']['countries']);
 	this.data.land = {
@@ -208,6 +264,9 @@ voyc.World.prototype.setupData = function() {
 	
 	this.iterator.iterateCollection(window['voyc']['data']['deserts'], this.iterateeInit);
 	this.iterator.iterateCollection(window['voyc']['data']['highmountains'], this.iterateeInit);
+	this.iterator.iterateCollection(window['voyc']['data']['mediummountains'], this.iterateeInit);
+	this.iterator.iterateCollection(window['voyc']['data']['lowmountains'], this.iterateeInit);
+	this.iterator.iterateCollection(window['voyc']['data']['empire'], this.iterateeInit);
 }
 
 voyc.World.prototype.spin = function(dir) {
@@ -315,26 +374,6 @@ voyc.World.prototype.createLayerDiv = function(eid) {
 	return a;
 }
 
-voyc.World.prototype.createRiverPaths = function() {
-	var svg = this.getLayer(voyc.layer.RIVERS).svg;
-	for (var i=1; i<=6; i++) {
-		var pathStill = document.createElementNS("http://www.w3.org/2000/svg", 'path');
-		pathStill.id = 'riverpathstill'+i;
-		pathStill.classList.add('river');
-		pathStill.classList.add('wid'+i);
-	//	pathStill['__data__'] = window['voyc']['data']['river'][i];
-		svg.appendChild(pathStill);
-        
-		var pathAnim = document.createElementNS("http://www.w3.org/2000/svg", 'path');
-		pathAnim.id = 'riverpathanim'+i;
-		pathAnim.classList.add('river');
-		pathAnim.classList.add('ariver');
-		pathAnim.classList.add('wid'+i);
-	//	pathAnim['__data__'] = window['voyc']['data']['river'][i];
-		svg.appendChild(pathAnim);
-	}
-}
-
 voyc.World.prototype.getLayer = function(layer) {
 	return this.layer[layer];
 }
@@ -345,7 +384,9 @@ voyc.World.prototype.show = function() {
 	this.getLayer(voyc.layer.FASTBACK).canvas.classList.remove('hidden');
 	this.getLayer(voyc.layer.FEATURES).canvas.classList.remove('hidden');
 	this.showHiRes(voyc.plunder.getOption(voyc.option.HIRES));
-	this.getLayer(voyc.layer.RIVERS).svg.classList.remove('hidden');
+	this.getLayer(voyc.layer.RIVER0).canvas.classList.remove('hidden');
+	this.getLayer(voyc.layer.RIVER1).canvas.classList.remove('hidden');
+	this.getLayer(voyc.layer.RIVER2).canvas.classList.remove('hidden');
 	this.getLayer(voyc.layer.REFERENCE).canvas.classList.remove('hidden');
 	this.getLayer(voyc.layer.EMPIRE).canvas.classList.remove('hidden');
 	this.getLayer(voyc.layer.FOREGROUND).canvas.classList.remove('hidden');
@@ -403,8 +444,6 @@ voyc.World.prototype.drawOceansAndLand = function() {
 	var ctx = this.getLayer(voyc.layer.FEATURES).ctx;
 	ctx.clearRect(0, 0, this.w, this.h);
 	
-	this.clearRivers();
-
 	ctx = this.getLayer(voyc.layer.FASTBACK).ctx;
 	ctx.clearRect(0, 0, this.w, this.h);
 	
@@ -431,21 +470,51 @@ voyc.World.prototype.drawGrid = function() {
 	}
 }
 
-voyc.World.prototype.clearRivers = function() {
-	for (var i=1; i<=6; i++) {
-		document.getElementById('riverpathstill'+i).removeAttribute('d');
-		document.getElementById('riverpathanim'+i).removeAttribute('d');
-	}
+voyc.World.prototype.drawRivers = function() {
+	this.iterateeRiver.ctx.strokeStyle = '#00F';
+	this.iterateeRiver.ctx.lineWidth = 3.0;
+	this.iterator.iterateCollection(window['voyc']['data']['river'][1], this.iterateeRiver);
+	this.iterateeRiver.ctx.lineWidth = 2.5;
+	this.iterator.iterateCollection(window['voyc']['data']['river'][2], this.iterateeRiver);
+	this.iterateeRiver.ctx.lineWidth = 2.0;
+	this.iterator.iterateCollection(window['voyc']['data']['river'][3], this.iterateeRiver);
+	this.iterateeRiver.ctx.lineWidth = 1.5;
+	this.iterator.iterateCollection(window['voyc']['data']['river'][4], this.iterateeRiver);
+	this.iterateeRiver.ctx.lineWidth = 1.0;
+	this.iterator.iterateCollection(window['voyc']['data']['river'][5], this.iterateeRiver);
+	this.iterateeRiver.ctx.lineWidth = 0.5;
+	this.iterator.iterateCollection(window['voyc']['data']['river'][6], this.iterateeRiver);
 }
 
-voyc.World.prototype.drawRivers = function() {
-	for (var i=1; i<=6; i++) {
-		this.iterator.iterateCollection(window['voyc']['data']['river'][i], this.iterateeRiver);
-		document.getElementById('riverpathstill'+i).setAttribute('d', this.iterateeRiver.d);
-		document.getElementById('riverpathanim'+i).setAttribute('d', this.iterateeRiver.d);
+voyc.World.prototype.drawRiversAnim = function() {
+	this.riverpass++;
+	if (this.riverpass > 2){
+		this.riverpass = 0;
 	}
-
-	//this.world.iterator.iterateCollection(window['voyc']['data']['river'][1], this.world.iterateeRiverAnim);
+	if (this.riverpass == 0) {
+		this.iterateeRiverAnim.ctx = this.getLayer(voyc.layer.RIVER0).ctx;
+		this.iterateeRiverAnim.ctx.clearRect(0, 0, this.w, this.h);
+		this.iterateeRiverAnim.radius = 2.8;
+		this.iterator.iterateCollection(window['voyc']['data']['river'][1], this.iterateeRiverAnim);
+		this.iterateeRiverAnim.radius = 2.4;
+		this.iterator.iterateCollection(window['voyc']['data']['river'][2], this.iterateeRiverAnim);
+		this.iterateeRiverAnim.radius = 1.0;
+		this.iterator.iterateCollection(window['voyc']['data']['river'][5], this.iterateeRiverAnim);
+	}
+	if (this.riverpass == 1) {
+		this.iterateeRiverAnim.ctx = this.getLayer(voyc.layer.RIVER1).ctx;
+		this.iterateeRiverAnim.ctx.clearRect(0, 0, this.w, this.h);
+		this.iterateeRiverAnim.radius = 2;
+		this.iterator.iterateCollection(window['voyc']['data']['river'][3], this.iterateeRiverAnim);
+		this.iterateeRiverAnim.radius = 1.5;
+		this.iterator.iterateCollection(window['voyc']['data']['river'][4], this.iterateeRiverAnim);
+	}
+	if (this.riverpass == 2) {
+		this.iterateeRiverAnim.ctx = this.getLayer(voyc.layer.RIVER2).ctx;
+		this.iterateeRiverAnim.ctx.clearRect(0, 0, this.w, this.h);
+		this.iterateeRiverAnim.radius = 1.2;
+		this.iterator.iterateCollection(window['voyc']['data']['river'][6], this.iterateeRiverAnim);
+	}
 }
 
 //	if (voyc.plunder.getOption(voyc.option.HIRES)) {
@@ -476,10 +545,24 @@ voyc.World.prototype.drawFeatures = function() {
 	ctx.fill();
 
 	// high mountains
-	var pattern = ctx.createPattern(voyc.plunder.asset.get('himtn'), 'repeat');
+	var pattern = ctx.createPattern(voyc.plunder.asset.get('mtnhi'), 'repeat');
 	ctx.fillStyle = pattern;
 	ctx.beginPath();
 	this.iterator.iterateCollection(window['voyc']['data']['highmountains'], this.iterateeFeature);
+	ctx.fill();
+
+	// medium mountains
+	var pattern = ctx.createPattern(voyc.plunder.asset.get('mtnmed'), 'repeat');
+	ctx.fillStyle = pattern;
+	ctx.beginPath();
+	this.iterator.iterateCollection(window['voyc']['data']['mediummountains'], this.iterateeFeature);
+	ctx.fill();
+
+	// lo mountains
+	var pattern = ctx.createPattern(voyc.plunder.asset.get('mtnlo'), 'repeat');
+	ctx.fillStyle = pattern;
+	ctx.beginPath();
+	this.iterator.iterateCollection(window['voyc']['data']['lowmountains'], this.iterateeFeature);
 	ctx.fill();
 
 	return;
@@ -524,12 +607,14 @@ voyc.layer = {
 	SLOWBACKA:1,
 	FASTBACK:2,
 	FEATURES:3,
-	RIVERS:4,
-	REFERENCE:5,
-	EMPIRE:6,
-	FOREGROUND:7,
-	HERO:8,
-	HUD:9,
+	RIVER0:4,
+	RIVER1:5,
+	RIVER2:6,
+	REFERENCE:7,
+	EMPIRE:8,
+	FOREGROUND:9,
+	HERO:10,
+	HUD:11,
 }
 
 /** @struct */

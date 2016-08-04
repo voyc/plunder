@@ -25,7 +25,7 @@ voyc.Plunder = function() {
 	this.hud = {};
 
 	this.loadnum = 2;
-	this.loadmax = 26;
+	this.loadmax = 30;
 	this.loaded = {};
 	this.options = {};
 	this.score = 0;
@@ -114,7 +114,9 @@ voyc.Plunder.prototype.load = function () {
 		{key:'redxbox' ,path:path+'images/red-xbox.png'},
 		{key:'bluebox' ,path:path+'images/blue-xbox.png'},
 		{key:'treasure',path:path+'images/chest32.png'},
-		{key:'himtn'   ,path:path+'images/highmountains.png'},
+		{key:'mtnhi'   ,path:path+'images/mtnhi.png'},
+		{key:'mtnmed'  ,path:path+'images/mtnmed.png'},
+		{key:'mtnlo'   ,path:path+'images/mtnlo.png'},
 		{key:'desert'  ,path:path+'images/desert.png'},
 	];
 
@@ -140,6 +142,8 @@ voyc.Plunder.prototype.load = function () {
 		'data/treasure.js',
 		'data/deserts.js',
 		'data/highmountains.js',
+		'data/mediummountains.js',
+		'data/lowmountains.js',
 		'data/worldtopo.js',
 		'data/empire.js',
 		'data/river1.js',
@@ -149,8 +153,6 @@ voyc.Plunder.prototype.load = function () {
 		'data/river5.js',
 		'data/river6.js',
 		//'data/foothills.js',
-		//'data/lowmountains.js',
-		//'data/mediummountains.js',
 		//'data/plains.js',
 		//'data/plateaux.js',
 		//'data/swamps.js',
@@ -368,6 +370,7 @@ voyc.Plunder.prototype.render = function (timestamp) {
 		this.drawEmpire(ctx);
 		ctx = this.world.getLayer(voyc.layer.FOREGROUND).ctx;
 		this.drawTreasure(ctx);
+		this.world.drawRiversAnim();
 	}
 	if ((this.world.moved || this.hero.moved) && !this.getOption(voyc.option.CHEAT)) {
 		this.hero.draw();
@@ -449,131 +452,6 @@ voyc.Plunder.prototype.timeBackward = function() {
 	this.time.sliding = true;
 }
 
-/*
-voyc.Plunder.prototype.plotRivers = function () {
-	log&&console.log(voyc.timer()+'plotRivers start');
-	var geom = [];
-	var line = [];
-	var co = [];
-	var pt = [];
-	var newline = [];
-	var cntFeatures = 0;
-	var cntLines = 0;
-	var cntPoints = 0;
-	var m = 0;
-	var t = [];
-	t[0] = '';
-	t[1] = '';
-	t[2] = '';
-	t[3] = '';
-	t[4] = '';
-	t[5] = '';
-	t[6] = '';
-	var scalerank = 0;
-	for (var i=0; i<window['voyc']['data'].rivers.features.length; i++) {
-		// geom is an object that includes type, coordinates, properties.  we add points.
-		geom = voyc.data.rivers.features[i].geometry;
-		scalerank = voyc.data.rivers.features[i].properties.scalerank;
-		geom.points = [];
-
-		// geom.coordinates is an array of linestrings
-		for (var j=0; j<geom.coordinates.length; j++) {
-			line = geom.coordinates[j];
-
-			// line is an array of coords
-			newline = [];
-			m = 0;
-			for (var n=0; n<line.length; n++) {
-				co = line[n];
-				pt = this.world.projection(co);  // pt = reverseGeocode(co);
-				if (pt[0] > 0 && pt[0] < this.world.w && pt[1] > 0 && pt[1] < this.world.h) {
-					newline.push(pt);
-					cntPoints++;
-					t[scalerank] += ((m) ? 'L' : 'M' ) + pt[0].toFixed(1) + ' ' + pt[1].toFixed(1) + ' ';
-					m++;
-				}
-			}
-			if (newline.length > 0) {
-				geom.points.push(newline);
-				cntLines++;
-			}
-		}
-		if (geom.points.length > 0) {
-			cntFeatures++;
-		}
-	}
-	log&&console.log(voyc.timer()+'plotRivers complete, '+cntFeatures+','+cntLines+','+cntPoints);
-	// 121ms plotRivers complete, 348,661,24036
-	// 90ms plotRivers complete, 28,58,1799
-	return t;
-}
-		
-voyc.Plunder.prototype.drawRiversCanvas = function (ctx) {
-	log&&console.log(voyc.timer()+'drawRivers start');
-	ctx.strokeStyle = '#00f';
-	var geom = [];
-	var line = [];
-	var pt = [];
-	for (var i=0; i<voyc.data.rivers.features.length; i++) {
-		// geom is an object that includes type, coordinates, properties.  we add points.
-		geom = voyc.data.rivers.features[i].geometry;
-
-		// geom.points is an array of linestrings
-		for (var j=0; j<geom.points.length; j++) {
-			line = geom.points[j];
-
-			// line is an array of coords
-			pt = line[0];
-			ctx.moveTo(pt[0], pt[1]);
-			for (var n=1; n<line.length; n++) {
-				pt = line[n];
-				ctx.lineTo(pt[0], pt[1]);
-			}
-			ctx.stroke();
-		}
-	}
-	log&&console.log(voyc.timer()+'drawRivers complete');
-}
-
-voyc.Plunder.prototype.drawRiversCanvasAnimated = function (ctx) {
-	log&&console.log(voyc.timer()+'drawRiversAnimated start');
-
-	var color = ['#3cf','#09f','#03c'];
-	var i = 0;
-	var r = 0;
-	var getColor = function() {
-		r = (this.i++) % 3;
-		return color[r];
-	}
-
-	var geom = [];
-	var line = [];
-	var pt = [];
-	var ptPrev = [];
-	for (var i=0; i<voyc.data.rivers.features.length; i++) {
-		// geom is an object that includes type, coordinates, properties.  we add points.
-		geom = voyc.data.rivers.features[i].geometry;
-
-		// geom.points is an array of linestrings
-		for (var j=0; j<geom.points.length; j++) {
-			line = geom.points[j];
-
-			// line is an array of coords
-			ctx.strokeStyle = '#0f0'; //getColor();
-			ptPrev = line[0];
-			ctx.moveTo(ptPrev[0], ptPrev[1]);
-			for (var n=1; n<line.length; n++) {
-				pt = line[n];
-				ctx.lineTo(pt[0], pt[1]);
-				ctx.stroke();
-				ptPrev = pt;
-			}
-		}
-	}
-	log&&console.log(voyc.timer()+'drawRiversAnimated complete');
-}
-*/
-
 // on hit, set whereami string and speed
 voyc.Plunder.prototype.hitTestFeatures = function () {
 	var hitString = '';
@@ -594,6 +472,28 @@ voyc.Plunder.prototype.hitTestFeatures = function () {
 	if (this.world.iterateeHitTest.name) {
 		hitString += this.world.iterateeHitTest.name + '<br/>';
 		speed *= voyc.SpeedFactor.highmountains;
+	}
+
+	this.world.iterateeHitTest.name = '';
+	this.world.iterator.iterateCollection(window['voyc']['data']['mediummountains'], this.world.iterateeHitTest);
+	if (this.world.iterateeHitTest.name) {
+		hitString += this.world.iterateeHitTest.name + '<br/>';
+		speed *= voyc.SpeedFactor.mediummountains;
+	}
+
+	this.world.iterateeHitTest.name = '';
+	this.world.iterator.iterateCollection(window['voyc']['data']['lowmountains'], this.world.iterateeHitTest);
+	if (this.world.iterateeHitTest.name) {
+		hitString += this.world.iterateeHitTest.name + '<br/>';
+		speed *= voyc.SpeedFactor.lowmountains;
+	}
+
+	// do this if time has changed, even if hero has not moved
+	this.world.iterateeHitTest.name = '';
+	this.world.iterateeHitTest.suffix = '';
+	this.world.iterator.iterateCollection(window['voyc']['data']['empire'], this.world.iterateeHitTest);
+	if (this.world.iterateeHitTest.name) {
+		hitString += this.world.iterateeHitTest.name + '<br/>';
 	}
 
 	this.hud.setWhereami(this.world.iterateeHitTest.targetCoord, hitString, '');
@@ -766,9 +666,9 @@ voyc.Event = {
 /** @enum */
 voyc.SpeedFactor = {
 	deserts: .22,
-	highmountains: .30,
+	highmountains: .18,
 	mediummountains: .24,
-	lowmountains: .18,
+	lowmountains: .30,
 	plateaux: 0,
 	plains: 0,
 	swamps: .15,
